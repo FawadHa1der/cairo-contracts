@@ -66,7 +66,7 @@ func total_supply_staked{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 end
 
 @external
-func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
+func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256) -> (success: felt):
 
     alloc_locals
     
@@ -96,11 +96,11 @@ func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(am
     total_supply.write(value=new_supply)
     reward_factor_at_stake_time.write(user=caller_address, value=current_reward_factor)
     stake_called.emit(user=caller_address, amount=amount)
-    return ()
+    return (TRUE)
 end
 
 @external
-func unstake_claim_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+func unstake_claim_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}()-> (success: felt):
     alloc_locals
     let (caller_address) = get_caller_address()
     let (local staked_amount : Uint256) = staked_amounts.read(caller_address)
@@ -126,12 +126,12 @@ func unstake_claim_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     unstake_called.emit(
         user=caller_address, reward_amount=reward_amount, stake_amount=staked_amount)
 
-    return ()
+    return (TRUE)
 end
 
 @external
 func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        amount : Uint256):
+        amount : Uint256)-> (success: felt):
     alloc_locals
     let (caller_address) = get_caller_address()
     let (local reward_token_address : felt) = rewarderc20_address.read()
@@ -176,5 +176,5 @@ func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     # let (local caller_address) = get_caller_address()
     deposit_reward_called.emit(user=caller_address, reward_amount=amount)
 
-    return ()
+    return (TRUE)
 end

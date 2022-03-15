@@ -12,12 +12,12 @@ Account1Signer = Signer(123456789987654322)
 Account2Signer = Signer(123456789987654323)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def event_loop():
     return asyncio.new_event_loop()
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 async def erc20_factory():
 
     starknet = await Starknet.empty()
@@ -107,29 +107,32 @@ async def erc20_factory():
     return starknet, erc20Stake, erc20Reward, stakingPool, owner,  account1, account2
 
 
-@pytest.mark.asyncio
-async def test_constructor(erc20_factory):
-    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
+# @pytest.mark.asyncio
+# async def test_constructor(erc20_factory):
+#     starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
 
-    execution_info = await erc20Stake.balanceOf(account1.contract_address).call()
-    assert execution_info.result.balance == uint(100)
+#     execution_info = await erc20Stake.balanceOf(account1.contract_address).call()
+#     assert execution_info.result.balance == uint(100)
 
-    execution_info = await erc20Stake.balanceOf(account2.contract_address).call()
-    assert execution_info.result.balance == uint(100)
+#     execution_info = await erc20Stake.balanceOf(account2.contract_address).call()
+#     assert execution_info.result.balance == uint(100)
 
-    execution_info = await erc20Stake.balanceOf(owner.contract_address).call()
-    assert execution_info.result.balance == uint(800)
+#     execution_info = await erc20Stake.balanceOf(owner.contract_address).call()
+#     assert execution_info.result.balance == uint(800)
 
-    execution_info = await erc20Stake.totalSupply().call()
-    assert execution_info.result.totalSupply == uint(1000)
+#     execution_info = await erc20Stake.totalSupply().call()
+#     assert execution_info.result.totalSupply == uint(1000)
 
-    execution_info = await erc20Reward.totalSupply().call()
-    assert execution_info.result.totalSupply == uint(1000)
+#     execution_info = await erc20Reward.totalSupply().call()
+#     assert execution_info.result.totalSupply == uint(1000)
 
 
 @pytest.mark.asyncio
 async def test_stake(erc20_factory):
     starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
+
+    execution_info = await stakingPool.total_supply_staked().call()
+    assert execution_info.result.supply == uint(0)
 
     amount = uint(10)
 
@@ -142,8 +145,7 @@ async def test_stake(erc20_factory):
     assert execution_info.result.balance == uint(90)
 
     execution_info = await stakingPool.total_supply_staked().call()
-    assert execution_info.result.balance == uint(10)
-
+    assert execution_info.result.supply == uint(10)
 
 # @pytest.mark.asyncio
 # async def test_name(erc20_factory):
