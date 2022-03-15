@@ -12,10 +12,8 @@ from openzeppelin.token.erc721.interfaces.IERC721_Metadata import IERC721_Metada
 from openzeppelin.token.ERC20.interfaces.IERC20 import IERC20
 from starkware.starknet.common.syscalls import get_contract_address
 from starkware.starknet.common.syscalls import call_contract, get_caller_address, get_tx_info
-# from openzeppelin.token.erc20.ERC20 import (
-#     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
-#     ERC20_mint, ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
-#     ERC20_transfer, ERC20_transferFrom)
+from openzeppelin.utils.constants import TRUE, FALSE
+
 
 @event
 func stake_called(user : felt, amount : Uint256):
@@ -67,31 +65,31 @@ func total_supply_staked{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     return (supply)
 end
 
-
 @external
 func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
+
     alloc_locals
-    let (caller_address) = get_caller_address()
-    let (contract_address) = get_contract_address()
-
-    # current stake has to be zero or unstake first
-    let current_stake = staked_amounts.read(user=caller_address)
-    assert (current_stake) = 0
-
-    # require(stakedAmounts[msg.sender] == 0, "need to claim current stake before performing additional stake");
-
-    assert_not_zero(caller_address)
-    let (staking_token_address) = stakingerc20_address.read()
     
+    let (caller_address) = get_caller_address()
+    assert_not_zero(caller_address)
+
+    let (contract_address) = get_contract_address()
+    
+    # current stake has to be zero or unstake first
+    let (current_stake) = staked_amounts.read(user=caller_address)
+    let (stake_is_zero) = uint256_eq(current_stake, Uint256(0, 0))
+    assert (stake_is_zero) = TRUE
+
+    let (staking_token_address) = stakingerc20_address.read()
     IERC20.transferFrom(
         contract_address=staking_token_address,
         sender=caller_address,
         recipient=contract_address,
         amount=amount)
+
     staked_amounts.write(user=caller_address, value=amount)
 
     let (local current_supply : Uint256) = total_supply.read()
-    # let (local new_allowance: Uint256, is_overflow)
     let (local new_supply : Uint256, _) = uint256_add(current_supply, amount)
     let (local current_reward_factor : Uint256) = reward_factor.read()
 
@@ -99,7 +97,6 @@ func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(am
     reward_factor_at_stake_time.write(user=caller_address, value=current_reward_factor)
     stake_called.emit(user=caller_address, amount=amount)
     return ()
-    # IERC20.transferFrom(
 end
 
 @external
