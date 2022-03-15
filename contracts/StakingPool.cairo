@@ -61,24 +61,40 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     return ()
 end
 
+@view 
+func total_supply_staked{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (supply:Uint256):
+    let (supply: Uint256) = total_supply.read()
+    return (supply)
+end
+
+
 @external
 func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
     alloc_locals
     let (caller_address) = get_caller_address()
     let (contract_address) = get_contract_address()
 
+    # current stake has to be zero or unstake first
+    let current_stake = staked_amounts.read(user=caller_address)
+    assert (current_stake) = 0
+
+    # require(stakedAmounts[msg.sender] == 0, "need to claim current stake before performing additional stake");
+
     assert_not_zero(caller_address)
     let (staking_token_address) = stakingerc20_address.read()
+    
     IERC20.transferFrom(
         contract_address=staking_token_address,
         sender=caller_address,
         recipient=contract_address,
         amount=amount)
     staked_amounts.write(user=caller_address, value=amount)
+
     let (local current_supply : Uint256) = total_supply.read()
     # let (local new_allowance: Uint256, is_overflow)
     let (local new_supply : Uint256, _) = uint256_add(current_supply, amount)
     let (local current_reward_factor : Uint256) = reward_factor.read()
+
     total_supply.write(value=new_supply)
     reward_factor_at_stake_time.write(user=caller_address, value=current_reward_factor)
     stake_called.emit(user=caller_address, amount=amount)
