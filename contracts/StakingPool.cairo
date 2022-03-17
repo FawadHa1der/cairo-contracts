@@ -14,7 +14,6 @@ from starkware.starknet.common.syscalls import get_contract_address
 from starkware.starknet.common.syscalls import call_contract, get_caller_address, get_tx_info
 from openzeppelin.utils.constants import TRUE, FALSE
 
-
 @event
 func stake_called(user : felt, amount : Uint256):
 end
@@ -43,12 +42,27 @@ end
 func reward_factor() -> (reward : Uint256):
 end
 
+@view
+func view_reward_factor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        reward : Uint256):
+    let reward : Uint256 = reward_factor.read()
+    return (reward)
+end
+
 @storage_var
 func staked_amounts(user : felt) -> (amount : Uint256):
 end
 
 @storage_var
 func reward_factor_at_stake_time(user : felt) -> (reward_factor : Uint256):
+end
+
+@view
+func view_reward_factor_at_stake_time{
+        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(user : felt) -> (
+        reward_factor : Uint256):
+    let reward_factor : Uint256 = reward_factor_at_stake_time.read(user=user)
+    return (reward_factor)
 end
 
 @constructor
@@ -59,22 +73,22 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     return ()
 end
 
-@view 
-func total_supply_staked{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (supply:Uint256):
-    let (supply: Uint256) = total_supply.read()
+@view
+func total_supply_staked{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        supply : Uint256):
+    let (supply : Uint256) = total_supply.read()
     return (supply)
 end
 
 @external
-func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256) -> (success: felt):
-
+func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256) -> (
+        success : felt):
     alloc_locals
-    
     let (caller_address) = get_caller_address()
     assert_not_zero(caller_address)
 
     let (contract_address) = get_contract_address()
-    
+
     # current stake has to be zero or unstake first
     let (current_stake) = staked_amounts.read(user=caller_address)
     let (stake_is_zero) = uint256_eq(current_stake, Uint256(0, 0))
@@ -100,7 +114,8 @@ func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(am
 end
 
 @external
-func unstake_claim_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}()-> (success: felt):
+func unstake_claim_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        success : felt):
     alloc_locals
     let (caller_address) = get_caller_address()
     let (local staked_amount : Uint256) = staked_amounts.read(caller_address)
@@ -112,7 +127,7 @@ func unstake_claim_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     let (local reward_amount : Uint256, _) = uint256_mul(staked_amount, diff_stake)
     let (total_supply_temp) = total_supply.read()
     # let local stakedAmount: Uint256 =  staked_amounts.read(user=caller_address)
-    let (local rem_stake : Uint256, _) = uint256_mul(total_supply_temp, staked_amount)
+    let (local rem_stake : Uint256) = uint256_sub(total_supply_temp, staked_amount)
     total_supply.write(value=rem_stake)
     let zero_as_uint256 : Uint256 = Uint256(0, 0)
 
@@ -131,7 +146,7 @@ end
 
 @external
 func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        amount : Uint256)-> (success: felt):
+        amount : Uint256) -> (success : felt):
     alloc_locals
     let (caller_address) = get_caller_address()
     let (local reward_token_address : felt) = rewarderc20_address.read()
@@ -142,17 +157,18 @@ func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
         sender=caller_address,
         recipient=contract_address,
         amount=amount)
+
     # Instanciating a zero in uint format
     let zero_as_uint256 : Uint256 = Uint256(0, 0)
     let (local cur_total_supply : Uint256) = total_supply.read()
-    let (local is_equal) = uint256_eq(cur_total_supply, zero_as_uint256)
+    let (local is_supply_zero) = uint256_eq(cur_total_supply, zero_as_uint256)
 
     tempvar caller_address = caller_address
     tempvar syscall_ptr = syscall_ptr
     tempvar pedersen_ptr = pedersen_ptr
     tempvar range_check_ptr = range_check_ptr
 
-    if is_equal == 0:
+    if is_supply_zero == 0:
         # tempvar caller_address = caller_address
         tempvar syscall_ptr = syscall_ptr
         tempvar pedersen_ptr = pedersen_ptr
@@ -175,6 +191,5 @@ func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
 
     # let (local caller_address) = get_caller_address()
     deposit_reward_called.emit(user=caller_address, reward_amount=amount)
-
     return (TRUE)
 end
