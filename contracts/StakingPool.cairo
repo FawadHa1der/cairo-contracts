@@ -180,16 +180,6 @@ func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
         let (local new_reward : Uint256, _) = uint256_add(tmp_reward_factor_inc, cur_reward)
         reward_factor.write(value=new_reward)
     end
-    # tempvar caller_address = caller_address
-    # tempvar syscall_ptr = syscall_ptr
-    # tempvar pedersen_ptr = pedersen_ptr
-    # tempvar range_check_ptr = range_check_ptr
-
-    # tempvar syscall_ptr = syscall_ptr
-    # tempvar pedersen_ptr = pedersen_ptr
-    # tempvar range_check_ptr = range_check_ptr
-
-    # let (local caller_address) = get_caller_address()
     deposit_reward_called.emit(user=caller_address, reward_amount=amount)
     return (TRUE)
 end
