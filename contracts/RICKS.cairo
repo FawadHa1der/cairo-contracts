@@ -254,20 +254,22 @@ func update_most_recent_prices{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
 end
 
 func calculate_average_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        ) -> ():
-        let sum: felt  = calculate_sum_price(RECENT_PRICES_ARR_SIZE, 0)
-    return ()
+        ) -> (average: felt):
+    let sum : felt = calculate_sum_price(RECENT_PRICES_ARR_SIZE)
+    let (_average: felt, _)  = unsigned_div_rem(sum, RECENT_PRICES_ARR_SIZE)
+    return (_average)
 end
 
 func calculate_sum_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         idx : felt) -> (sum : felt):
-    if _idx == 0:
-        return (sum:0)
+    if idx == 0:
+        let last_price: felt = most_recent_prices.read(idx)
+        return (last_price)
     end
-    
-    let _sum :felt = calculate_sum_price(_idx=_idx - 1)
-    let price_for_idx : felt = most_recent_prices.read(_idx)
-    let new_sum: felt = _sum + price_for_idx
- 
-    return (sum:new_sum) 
+
+    let _sum : felt = calculate_sum_price(idx - 1)
+    let price_for_idx : felt = most_recent_prices.read(idx)
+    let new_sum : felt = _sum + price_for_idx
+
+    return (new_sum)
 end
