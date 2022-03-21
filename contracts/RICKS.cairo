@@ -8,8 +8,10 @@ from starkware.cairo.common.math import (
 from starkware.cairo.common.uint256 import (
     Uint256, uint256_add, uint256_sub, uint256_le, uint256_lt, uint256_check, uint256_eq)
 from openzeppelin.token.ERC721.interfaces.IERC721_Metadata import IERC721_Metadata
-from openzeppelin.token.ERC721.interfaces.IERC721 import IERC721
-from starkware.starknet.common.syscalls import get_block_number, get_block_timestamp
+from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
+from openzeppelin.token.erc721.interfaces.IERC721_Receiver import IERC721_Receiver
+from starkware.starknet.common.syscalls import (
+    get_block_number, get_block_timestamp, get_contract_address)
 
 from openzeppelin.token.erc20.library import (
     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
@@ -37,6 +39,19 @@ from openzeppelin.token.erc20.library import (
 # -------- ERC721 INFORMATION --------
 # -----------------------------------
 
+# struct RecentPrices`:
+#     member recent_price1 : felt
+#     member recent_price2 : felt
+#     member recent_price3 : felt
+#     member recent_price4 : felt
+#     member recent_price5 : felt
+#     member recent_price6 : felt
+# end
+
+# @storage_var
+# func recent_prices_struct() -> (res : RecentPrices):
+# end
+
 # the ERC721 token address being fractionalized
 @storage_var
 func token_address() -> (address : felt):
@@ -60,6 +75,10 @@ end
 
 @storage_var
 func auction_end_time() -> (time : felt):
+end
+
+@storage_var
+func initial_supply() -> (supply : Uint256):
 end
 
 @storage_var
@@ -102,7 +121,7 @@ end
 # end
 
 @storage_var
-func most_recent_prices(i : Uint256) -> (res : Uint256):
+func most_recent_prices(i : felt) -> (res : felt):
 end
 
 @storage_var
@@ -119,11 +138,11 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, decimals : felt, initial_supply : Uint256, recipient : felt,
+        name : felt, symbol : felt, decimals : felt, _initial_supply : Uint256, recipient : felt,
         _token : felt, _id : felt, _daily_inflation_rate : felt, _staking_contract : felt,
         _staking_pool_contract : felt, _reward_contract : felt):
+    # let decimals_256 : Uint256 = Uint256(decimals, 0)
     ERC20_initializer(name, symbol, decimals)
-    ERC20_mint(recipient, initial_supply)
 
     token_address.write(value=_token)
     token_id.write(value=_id)
@@ -135,6 +154,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     daily_inflationary_rate.write(_daily_inflation_rate)
     reward_contract.write(_reward_contract)
     auction_state.write(AuctionState.EMPTY)
+    initial_supply.write(_initial_supply)
 
     auction_length.write(10800)  # 3 hours
     auction_interval.write(86400)
@@ -144,7 +164,37 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 @external
-func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> ():
+func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+    let action_state : felt = auction_state.read()
+    assert action_state = AuctionState.EMPTY
+
+    let caller_address : felt = get_caller_address()
+    let _token_address : felt = token_address.read()
+    let contract_address : felt = get_contract_address()
+    let _token_id : felt = token_id.read()
+
+    let _token_id_256 : Uint256 = Uint256(_token_id, 0)
+
+    IERC721.transferFrom(
+        contract_address=_token_address,
+        _from=caller_address,
+        to=contract_address,
+        tokenId=_token_id_256)
+
+    let block_time_stamp : felt = get_block_timestamp()
+    let _initial_supply : felt = initial_supply.read()
+    auction_end_time.write(block_time_stamp)
+    auction_state.write(AuctionState.INACTIVE)
+
+    let _initial_supply : felt = initial_supply.read()
+    let _initial_supply_256 : Uint256 = Uint256(_initial_supply, 0)
+
+    ERC20_mint(caller_address, _initial_supply_256)
+    return ()
+end
+
+func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        bid : felt) -> ():
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.INACTIVE
 
@@ -174,97 +224,31 @@ func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
     let _get_caller_address : felt = get_caller_address()
     current_price.write(value=bid)
     winning_address.write(value=_get_caller_address)
-
     return ()
 end
 
-# /// @notice price per token when buyout is completed
-# uint256 public finalBuyoutPricePerToken;
+func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+    let action_state : felt = auction_state.read()
+    assert action_state = AuctionState.ACTIVE
 
-# /// @notice weth address
-# address public constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    let block_time_stamp : felt = get_block_timestamp()
+    let _auction_end_time : felt = auction_end_time.read()
 
-# /// @notice staking pool address
-# address public stakingPool;
+    assert_le(_auction_end_time, block_time_stamp)
+    return ()
+end
 
-# /// -----------------------------------
-# /// -------- ERC721 INFORMATION --------
-# /// -----------------------------------
+const RECENT_PRICES_ARR_SIZE = 5
+# bad hack, currently arrays are not supported in storage variables
+func update_most_recent_prices{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        _idx : felt, new_price : felt) -> ():
+    if _idx == 0:
+        return ()
+    end
 
-# /// @notice the ERC721 token address being fractionalized
-# address public token;
+    let price_for_idx : felt = most_recent_prices.read(_idx)
+    most_recent_prices.write(i=_idx, value=new_price)
 
-# /// @notice the ERC721 token ID being fractionalized
-# uint256 public id;
-
-# /// -------------------------------------
-# /// -------- AUCTION INFORMATION --------
-# /// -------------------------------------
-
-# /// @notice the unix timestamp end time of auction
-# uint256 public auctionEndTime;
-
-# /// @notice minimum amount of time between auctions
-# uint256 public auctionInterval;
-
-# /// @notice minimum % increase between bids. 3 decimals, ie. 100 = 10%
-# uint256 public minBidIncrease;
-
-# /// @notice the minumum length of auctions
-# uint256 public auctionLength;
-
-# /// @notice the current price of the winning Bid during auction
-# uint256 public currentPrice;
-
-# /// @notice the current user winning the token auction
-# address payable public winning;
-
-# /// @notice the amount of tokens being sold in current auction
-# uint256 public tokenAmountForAuction;
-
-# /// @notice possible states for the auction
-# enum AuctionState {empty, inactive, active, finalized }
-
-# /// @notice auction's current state
-# AuctionState public auctionState;
-
-# /// @notice price per shard for the five most recent auctions
-# uint256[5] public mostRecentPrices;
-
-# /// @notice number of auctions that have taken place
-# uint256 public numberOfAuctions;
-
-# /// @notice price per token when buyout is completed
-# uint256 public finalBuyoutPricePerToken;
-
-# /// -------------------------------------
-# /// -------- Inflation Parameters -------
-# /// -------------------------------------
-
-# /// @notice rate of daily RICKS issuance. 3 decimals, ie. 100 = 10%
-# uint256 public dailyInflationRate;
-
-# /// @notice initial supply of RICKS tokens
-# uint256 public initialSupply;
-
-# /// ------------------------
-# /// -------- EVENTS --------
-# /// ------------------------
-
-# /// @notice An event emitted when an auction is activated
-# event Activate(address indexed initiatior);
-
-# /// @notice An event emitted when an auction starts
-# event Start(address indexed buyer, uint price);
-
-# /// @notice An event emitted when a bid is made
-# event Bid(address indexed buyer, uint price);
-
-# /// @notice An event emitted when an auction is won
-# event Won(address indexed buyer, uint price);
-
-# /// @notice An event emitted when someone redeems all tokens for the NFT
-# event Redeem(address indexed redeemer);
-
-# /// @notice An event emitted with the price per token required for a buyout
-# event BuyoutPricePerToken(address indexed buyer, uint price);
+    update_most_recent_prices(_idx=_idx - 1, new_price=price_for_idx)
+    return ()
+end
