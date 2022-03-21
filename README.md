@@ -1,104 +1,27 @@
-# OpenZeppelin Cairo Contracts
-[![Tests and linter](https://github.com/OpenZeppelin/cairo-contracts/actions/workflows/python-app.yml/badge.svg)](https://github.com/OpenZeppelin/cairo-contracts/actions/workflows/python-app.yml)
+# RICKS
 
-**A library for secure smart contract development** written in Cairo for [StarkNet](https://starkware.co/product/starknet/), a decentralized ZK Rollup.
+## Introduction
 
-> ## ⚠️ WARNING! ⚠️
-> This is repo contains highly experimental code.
-> Expect rapid iteration.
-> **Do not use in production.**
 
-## Installation
+An implementation of [RICKS](https://www.paradigm.xyz/2021/10/ricks/) in starknet cairo, an NFT primitive by [@_Dave__White_](https://twitter.com/_Dave__White_), [@andy8052](https://twitter.com/andy8052) and [@danrobinson](https://twitter.com/danrobinson). RICKS aims to solve the reconstitution problem -- how do we design a fractionalization mechanism that ensures a pathway to recovering the underlying asset? 
 
-### First time?
+Significant help taken from ([https://github.com/FrankieIsLost/RICKS]) implementation in solidity.
 
-Before installing Cairo on your machine, you need to install `gmp`:
-```bash
-sudo apt install -y libgmp3-dev # linux
-brew install gmp # mac
-```
-> If you have any troubles installing gmp on your Apple M1 computer, [here’s a list of potential solutions](https://github.com/OpenZeppelin/nile/issues/22).
+## Implementation Notes
 
-### Set up the project
-Clone the repository
+There are a few differences between the present implementation and the original mechanism design: 
 
-```bash
-git clone git@github.com:OpenZeppelin/cairo-contracts.git
-```
+### The Buyout 
 
-`cd` into it and create a Python virtual environment:
+The original paper proposes a lottery buyout. When a majority owner triggers the buyout mechanism, they initiate a coin flip. With a 50% chance, they win all outstanding shares. And with a 50% chance, they pay every other owner the amount of shares required to double their positions. While this is EV fair, it has a few problems. Minority owners might feel like they were not properly compensated for their RICKS in the event of a loss, and majority owners might be reluctant to trigger the process given risk-aversion. 
 
-```bash
-cd cairo-contracts
-python3 -m venv env
-source env/bin/activate
-```
+This implementation uses a deterministic buyout process, which works as follows: First, the average price per shard of the past 5 buyouts is used to determine an implied valuation. Then, to trigger a buyout, an interested party must pay other owners a premium above this implied valuation. The premium scales quadratically with the unowned supply of RICKS, to disuade buyouts from minority owners. There's a lot of room to tune the premium function here. After the buyout process is completed, remaining shard holders are able to redeem those shards for their payout. 
 
-Install the [Nile](https://github.com/OpenZeppelin/nile) dev environment and then run `install` to get [the Cairo language](https://www.cairo-lang.org/docs/quickstart.html), a [local network](https://github.com/Shard-Labs/starknet-devnet/), and a [testing framework](https://docs.pytest.org/en/6.2.x/).
-```bash
-pip install cairo-nile
-nile install
-```
+### The Auction 
 
-## Usage
+This implementation uses an on-demand auction system, where anyone can trigger an auction given a certain minimum amount of time has elapsed since the last auction. The amout of shards issued is based on the amount of time elapsed between auctions, and is tunable through an inflation rate parameter. 
 
-### Compile the contracts
-```bash
-nile compile
+### Staking
 
-🤖 Compiling all Cairo contracts in the contracts directory
-🔨 Compiling contracts/IAccount.cairo
-🔨 Compiling contracts/Account.cairo
-🔨 Compiling contracts/AddressRegistry.cairo
-🔨 Compiling contracts/Initializable.cairo
-🔨 Compiling contracts/Ownable.cairo
-🔨 Compiling contracts/token/ERC721.cairo
-🔨 Compiling contracts/token/ERC20.cairo
-🔨 Compiling contracts/token/IERC20.cairo
-✅ Done
-```
+The RICKS contract deploys a staking pool on creation. Proceeds of the auction are paid to the staking pool. Any owner of RICKS can stake their shards in the pool. Proceeds from the auction are paid proportionally by staking weight at time of distribution into the pool. Staking pool implementation is based on [Scalable Reward Distribution on the Ethereum Blockchain](https://uploads-ssl.webflow.com/5ad71ffeb79acc67c8bcdaba/5ad8d1193a40977462982470_scalable-reward-distribution-paper.pdf)
 
-### Run tests
-
-```bash
-pytest
-
-====================== test session starts ======================
-platform linux -- Python 3.7.2, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
-rootdir: /home/readme/cairo-contracts
-plugins: asyncio-0.16.0, web3-5.24.0, typeguard-2.13.0
-collected 19 items                                                                                               
-
-tests/test_Account.py ....                                 [ 21%]
-tests/test_AddressRegistry.py ..                           [ 31%]
-tests/test_ERC20.py ..........                             [ 84%]
-tests/test_Initializable.py .                              [ 89%]
-tests/test_Ownable.py ..                                   [100%]
-```
-
-## Learn
-
-### Contract documentation
-* [Account](docs/Account.md)
-* [ERC20](docs/ERC20.md)
-* [ERC721](docs/ERC721.md)
-* [Contract extensibility pattern](docs/Extensibility.md)
-* [Utilities](docs/Utilities.md)
-### Cairo
-* [StarkNet official documentation](https://www.cairo-lang.org/docs/hello_starknet/index.html#hello-starknet)
-* [Cairo language documentation](https://www.cairo-lang.org/docs/hello_cairo/index.html#hello-cairo)
-* Perama's [Cairo by example](https://perama-v.github.io/cairo/by-example/)
-* [Cairo 101 workshops](https://www.youtube.com/playlist?list=PLcIyXLwiPilV5RBZj43AX1FY4FJMWHFTY)
-### Nile
-* [Getting started with StarkNet using Nile](https://medium.com/coinmonks/starknet-tutorial-for-beginners-using-nile-6af9c2270c15)
-* [How to manage smart contract deployments with Nile](https://medium.com/@martriay/manage-your-starknet-deployments-with-nile-%EF%B8%8F-e849d40546dd)
-
-## Security
-
-This project is still in a very early and experimental phase. It has never been audited nor thoroughly reviewed for security vulnerabilities. Do not use in production.
-
-Please report any security issues you find to security@openzeppelin.org.
-
-## License
-
-OpenZeppelin Cairo Contracts is released under the [MIT License](LICENSE).

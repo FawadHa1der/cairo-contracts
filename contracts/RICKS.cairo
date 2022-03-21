@@ -244,6 +244,9 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     return ()
 end
 
+func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+end
+
 func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
     alloc_locals
     let action_state : felt = auction_state.read()
@@ -273,9 +276,7 @@ func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     let _current_price_256 = Uint256(_current_price, 0)
 
     IERC20.approve(
-        contract_address=_reward_token,
-        spender=pool_contract_address,
-        amount=_current_price_256)
+        contract_address=_reward_token, spender=pool_contract_address, amount=_current_price_256)
 
     IStakingPool.deposit_reward(contract_address=pool_contract_address, amount=_current_price_256)
 
