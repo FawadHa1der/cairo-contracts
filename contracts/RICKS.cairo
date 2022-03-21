@@ -18,6 +18,9 @@ from openzeppelin.token.erc20.library import (
     ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
     ERC20_transfer, ERC20_transferFrom, ERC20_mint, ERC20_burn)
 
+from contracts.IStakingPool import IStakingPool
+from openzeppelin.token.ERC20.interfaces.IERC20 import IERC20
+
 # from openzeppelin.token.ERC20.ERC20 import (
 #     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
 #     ERC20_mint, ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
@@ -65,6 +68,7 @@ end
 func staking_contract() -> (contract : felt):
 end
 
+# same as weth
 @storage_var
 func reward_contract() -> (contract : felt):
 end
@@ -125,7 +129,7 @@ func most_recent_prices(i : felt) -> (res : felt):
 end
 
 @storage_var
-func no_of_auctions() -> (no : Uint256):
+func no_of_auctions() -> (no : felt):
 end
 
 @storage_var
@@ -135,6 +139,7 @@ end
 @storage_var
 func daily_inflationary_rate() -> (rate : felt):
 end
+const RECENT_PRICES_ARR_SIZE = 5
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -224,21 +229,62 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let _get_caller_address : felt = get_caller_address()
     current_price.write(value=bid)
     winning_address.write(value=_get_caller_address)
+
+    let caller_address : felt = get_caller_address()
+    let _reward_token : felt = reward_contract.read()
+    let ricks_contract_address : felt = get_contract_address()
+    let bid_256 : Uint256 = Uint256(bid, 0)
+
+    IERC20.transferFrom(
+        contract_address=_reward_token,
+        sender=caller_address,
+        recipient=ricks_contract_address,
+        amount=bid_256)
+
     return ()
 end
 
 func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+    alloc_locals
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.ACTIVE
 
-    let block_time_stamp : felt = get_block_timestamp()
+    let (local block_time_stamp : felt) = get_block_timestamp()
     let _auction_end_time : felt = auction_end_time.read()
-
     assert_le(_auction_end_time, block_time_stamp)
+
+    let _current_price : felt = current_price.read()
+    let _total_amount_for_auction : felt = token_amount_for_auction.read()
+
+    let (most_recent_price : felt, _) = unsigned_div_rem(_current_price, _total_amount_for_auction)
+    update_most_recent_prices(RECENT_PRICES_ARR_SIZE, most_recent_price)
+
+    auction_state.write(AuctionState.INACTIVE)
+    auction_end_time.write(block_time_stamp)
+
+    let _no_of_auction : felt = no_of_auctions.read()
+    no_of_auctions.write(_no_of_auction + 1)
+
+    let caller_address : felt = get_caller_address()
+    let _reward_token : felt = reward_contract.read()
+    let ricks_contract_address : felt = get_contract_address()
+
+    let pool_contract_address : felt = staking_pool_contract.read()
+    let _current_price_256 = Uint256(_current_price, 0)
+
+    IERC20.approve(
+        contract_address=_reward_token,
+        spender=pool_contract_address,
+        amount=_current_price_256)
+
+    IStakingPool.deposit_reward(contract_address=pool_contract_address, amount=_current_price_256)
+
+    let _winning_address : felt = winning_address.read()
+    let _total_amount_for_auction_256 : Uint256 = Uint256(_total_amount_for_auction, 0)
+    ERC20_mint(_winning_address, _total_amount_for_auction_256)
     return ()
 end
 
-const RECENT_PRICES_ARR_SIZE = 5
 # bad hack, currently arrays are not supported in storage variables
 func update_most_recent_prices{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         _idx : felt, new_price : felt) -> ():
@@ -254,16 +300,16 @@ func update_most_recent_prices{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
 end
 
 func calculate_average_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        ) -> (average: felt):
+        ) -> (average : felt):
     let sum : felt = calculate_sum_price(RECENT_PRICES_ARR_SIZE)
-    let (_average: felt, _)  = unsigned_div_rem(sum, RECENT_PRICES_ARR_SIZE)
+    let (_average : felt, _) = unsigned_div_rem(sum, RECENT_PRICES_ARR_SIZE)
     return (_average)
 end
 
 func calculate_sum_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         idx : felt) -> (sum : felt):
     if idx == 0:
-        let last_price: felt = most_recent_prices.read(idx)
+        let last_price : felt = most_recent_prices.read(idx)
         return (last_price)
     end
 
