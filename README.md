@@ -27,6 +27,6 @@ The RICKS contract deploys a staking pool on creation. Proceeds of the auction a
 
 
 ### Main Files
-    Ricks -> https://github.com/FawadHa1der/cairo-contracts/blob/main/contracts/RICKS.cairo
-    Pool -> https://github.com/FawadHa1der/cairo-contracts/blob/main/contracts/StakingPool.cairo
-    
+    Ricks -> (https://github.com/FawadHa1der/cairo-contracts/blob/main/contracts/RICKS.cairo)
+    Pool -> (https://github.com/FawadHa1der/cairo-contracts/blob/main/contracts/StakingPool.cairo)
+    Pool Tests -> (https://github.com/FawadHa1der/cairo-contracts/blob/main/tests/test_stakingpool.py)
