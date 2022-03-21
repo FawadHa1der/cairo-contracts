@@ -5,7 +5,7 @@
 
 An implementation of [RICKS](https://www.paradigm.xyz/2021/10/ricks/) in starknet cairo, an NFT primitive by [@_Dave__White_](https://twitter.com/_Dave__White_), [@andy8052](https://twitter.com/andy8052) and [@danrobinson](https://twitter.com/danrobinson). RICKS aims to solve the reconstitution problem -- how do we design a fractionalization mechanism that ensures a pathway to recovering the underlying asset? 
 
-Significant help taken from ([https://github.com/FrankieIsLost/RICKS]) implementation in solidity.
+Help taken from ([https://github.com/FrankieIsLost/RICKS]) implementation in solidity.
 
 ## Implementation Notes
 
