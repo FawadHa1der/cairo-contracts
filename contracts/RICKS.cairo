@@ -277,6 +277,20 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
         tempvar pedersen_ptr = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
     end
+    let ricks_contract_address : felt = get_contract_address()
+    let _winning_address : felt = winning_address.read()
+    let bid_256 : Uint256 = Uint256(bid, 0)
+    let caller_address : felt = get_caller_address()
+    let _reward_token : felt = reward_contract.read()
+
+    IERC20.transferFrom(
+        contract_address=_reward_token,
+        sender=ricks_contract_address,
+        recipient=_winning_address,
+        amount=bid_256)
+
+    current_price.write(bid)
+    winning_address.write(caller_address)
 
     return ()
 end
