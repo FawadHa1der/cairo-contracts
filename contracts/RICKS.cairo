@@ -5,6 +5,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import (
     assert_not_zero, assert_not_equal, assert_le, assert_lt, unsigned_div_rem)
+from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.uint256 import (
     Uint256, uint256_add, uint256_sub, uint256_le, uint256_lt, uint256_check, uint256_eq)
 from openzeppelin.token.ERC721.interfaces.IERC721_Metadata import IERC721_Metadata
@@ -20,6 +21,7 @@ from openzeppelin.token.erc20.library import (
 
 from contracts.IStakingPool import IStakingPool
 from openzeppelin.token.ERC20.interfaces.IERC20 import IERC20
+from openzeppelin.utils.constants import TRUE, FALSE
 
 # from openzeppelin.token.ERC20.ERC20 import (
 #     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
@@ -244,7 +246,39 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     return ()
 end
 
-func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> ():
+    alloc_locals
+    let action_state : felt = auction_state.read()
+    assert action_state = AuctionState.ACTIVE
+
+    let _block_time_stamp : felt = get_block_timestamp()
+    let _auction_end_time : felt = auction_end_time.read()
+    assert_le(_block_time_stamp, _auction_end_time)
+
+    let _min_bid_increase : felt = min_bid_increase.read()
+    let min_increase_multipler : felt = _min_bid_increase + 1000
+    let _current_price : felt = current_price.read()
+
+    assert_le(_current_price * min_increase_multipler, bid * 1000)
+
+    # If bid is within 15 minutes of auction end, extend auction
+    let time_till_auction_ends = _auction_end_time - _block_time_stamp
+    const TIME_RANGE = 54000
+    let within_15_min : felt = is_le(time_till_auction_ends, TIME_RANGE)
+
+    if within_15_min == TRUE:
+        let cur_auction_end_time : felt = auction_end_time.read()
+        auction_end_time.write(cur_auction_end_time + TIME_RANGE)
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+    end
+
+    return ()
 end
 
 func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
