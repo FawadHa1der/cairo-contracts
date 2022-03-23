@@ -50,7 +50,7 @@ func auction_end_time() -> (time : felt):
 end
 
 @storage_var
-func initial_supply() -> (supply : Uint256):
+func initial_supply() -> (supply : felt):
 end
 
 @storage_var
@@ -107,7 +107,7 @@ const AUCTION_SIZE = 5
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, decimals : felt, _initial_supply : Uint256, recipient : felt,
+        name : felt, symbol : felt, decimals : felt, _initial_supply : felt, recipient : felt,
         _token : felt, _id : felt, _daily_inflation_rate : felt, _staking_contract : felt,
         _staking_pool_contract : felt, _reward_contract : felt):
     # let decimals_256 : Uint256 = Uint256(decimals, 0)
