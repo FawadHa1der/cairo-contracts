@@ -135,13 +135,13 @@ func no_of_auctions() -> (no : felt):
 end
 
 @storage_var
-func final_buyout_price_per_token() -> (res : Uint256):
+func final_buyout_price_per_token() -> (res : felt):
 end
 
 @storage_var
 func daily_inflationary_rate() -> (rate : felt):
 end
-const RECENT_PRICES_ARR_SIZE = 5
+const AUCTION_SIZE = 5
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -308,7 +308,7 @@ func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     let _total_amount_for_auction : felt = token_amount_for_auction.read()
 
     let (most_recent_price : felt, _) = unsigned_div_rem(_current_price, _total_amount_for_auction)
-    update_most_recent_prices(RECENT_PRICES_ARR_SIZE, most_recent_price)
+    update_most_recent_prices(AUCTION_SIZE, most_recent_price)
 
     auction_state.write(AuctionState.INACTIVE)
     auction_end_time.write(block_time_stamp)
@@ -334,6 +334,82 @@ func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     return ()
 end
 
+func buyout{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> ():
+    alloc_locals
+    let action_state : felt = auction_state.read()
+    assert action_state = AuctionState.INACTIVE
+
+    let _no_of_auction : felt = no_of_auctions.read()
+    assert_lt(AUCTION_SIZE, _no_of_auction)
+
+    let caller_address : felt = get_caller_address()
+    let price_per_token : felt = buyout_price_per_token(caller_address)
+    let _total_supply : felt = ERC20_totalSupply()
+    let balance_of_buyer : felt = ERC20_balanceOf(caller_address)
+    let unowned_supply : felt = _total_supply - balance_of_buyer
+    let total_buyout_cost : felt = price_per_token * unowned_supply
+    let ricks_contract_address : felt = get_contract_address()
+    let _token_address : felt = token_address.read()
+
+    let _token_id : felt = token_id.read()
+    let _token_id_256 : Uint256 = Uint256(_token_id, 0)
+    assert_le(total_buyout_cost, bid)
+    let balance_of_buyer_256 : Uint256 = Uint256(balance_of_buyer, 0)
+    ERC20_burn(caller_address, balance_of_buyer_256)
+
+    final_buyout_price_per_token.write(price_per_token)
+
+    IERC721.transferFrom(
+        contract_address=_token_address,
+        _from=ricks_contract_address,
+        to=caller_address,
+        tokenId=_token_id_256)
+
+    auction_state.write(AuctionState.FINALYZED)
+
+    return ()
+end
+
+func buyout_price_per_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        buyer_address : felt) -> (price : felt):
+    alloc_locals
+    let balance_of_buyer : felt = ERC20_balanceOf(buyer_address)
+    let _total_supply : felt = ERC20_totalSupply()
+    let (buyer_fraction : felt, _) = unsigned_div_rem(balance_of_buyer, _total_supply)
+    let owner_supply_ratio : felt = 1000 * buyer_fraction
+    let unowned_supply_ratio : felt = 1000 - owner_supply_ratio
+    let unowned_supply_ratio_power_2 : felt = unowned_supply_ratio * unowned_supply_ratio
+
+    let (unowned_supply_ratio_percent : felt, _) = unsigned_div_rem(
+        unowned_supply_ratio_power_2, 100)
+    let premium : felt = unowned_supply_ratio_percent + 1000
+
+    let average_price : felt = calculate_average_price()
+    let (premium_fraction : felt, _) = unsigned_div_rem(premium, 1000)
+    let price_per_token : felt = average_price * premium_fraction
+
+    return (price_per_token)
+end
+
+func redeem_ricks_for_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        ) -> ():
+    alloc_locals
+    let action_state : felt = auction_state.read()
+    let caller_address : felt = get_caller_address()
+    assert action_state = AuctionState.FINALYZED
+    let balance : felt = ERC20_balanceOf(caller_address)
+    let _final_buyout_price_per_token : felt = final_buyout_price_per_token.read()
+    let payment_due : felt = balance * _final_buyout_price_per_token
+    let balance_256 : Uint256 = Uint256(balance, 0)
+    let payment_256 : Uint256 = Uint256(payment_due, 0)
+    let _reward_token : felt = reward_contract.read()
+
+    ERC20_burn(caller_address, balance_256)
+    IERC20.transfer(contract_address=_reward_token, recipient=caller_address, amount=payment_256)
+
+    return ()
+end
+
 # bad hack, currently arrays are not supported in storage variables
 func update_most_recent_prices{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         _idx : felt, new_price : felt) -> ():
@@ -350,8 +426,8 @@ end
 
 func calculate_average_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         ) -> (average : felt):
-    let sum : felt = calculate_sum_price(RECENT_PRICES_ARR_SIZE)
-    let (_average : felt, _) = unsigned_div_rem(sum, RECENT_PRICES_ARR_SIZE)
+    let sum : felt = calculate_sum_price(AUCTION_SIZE)
+    let (_average : felt, _) = unsigned_div_rem(sum, AUCTION_SIZE)
     return (_average)
 end
 
