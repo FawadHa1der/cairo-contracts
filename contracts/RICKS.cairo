@@ -23,40 +23,6 @@ from contracts.IStakingPool import IStakingPool
 from openzeppelin.token.ERC20.interfaces.IERC20 import IERC20
 from openzeppelin.utils.constants import TRUE, FALSE
 
-# from openzeppelin.token.ERC20.ERC20 import (
-#     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
-#     ERC20_mint, ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
-#     ERC20_transfer, ERC20_transferFrom)
-
-# @view
-# func weth() -> (address : felt):
-#     # to be changed
-#     return (0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
-# end
-
-# @view
-# func stakingPool() -> (address : felt):
-#     # to be changed
-#     return (0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
-# end
-
-# -----------------------------------
-# -------- ERC721 INFORMATION --------
-# -----------------------------------
-
-# struct RecentPrices`:
-#     member recent_price1 : felt
-#     member recent_price2 : felt
-#     member recent_price3 : felt
-#     member recent_price4 : felt
-#     member recent_price5 : felt
-#     member recent_price6 : felt
-# end
-
-# @storage_var
-# func recent_prices_struct() -> (res : RecentPrices):
-# end
-
 # the ERC721 token address being fractionalized
 @storage_var
 func token_address() -> (address : felt):
@@ -121,10 +87,6 @@ end
 @storage_var
 func auction_state() -> (state : felt):
 end
-
-# @storage_var
-# func auction_state() -> (auction_state : AuctionState):
-# end
 
 @storage_var
 func most_recent_prices(i : felt) -> (res : felt):
@@ -291,7 +253,6 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
 
     current_price.write(bid)
     winning_address.write(caller_address)
-
     return ()
 end
 

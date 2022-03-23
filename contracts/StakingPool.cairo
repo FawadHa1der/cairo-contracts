@@ -169,7 +169,6 @@ func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     tempvar range_check_ptr = range_check_ptr
 
     if is_supply_zero == 0:
-        # tempvar caller_address = caller_address
         tempvar syscall_ptr = syscall_ptr
         tempvar pedersen_ptr = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
