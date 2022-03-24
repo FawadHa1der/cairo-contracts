@@ -107,8 +107,8 @@ const AUCTION_SIZE = 5
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, decimals : felt, _initial_supply : felt, recipient : felt,
-        _token : felt, _id : felt, _daily_inflation_rate : felt, _staking_contract : felt,
+        name : felt, symbol : felt, decimals : felt, _initial_supply : felt, _token : felt,
+        _id : felt, _daily_inflation_rate : felt, _staking_contract : felt,
         _staking_pool_contract : felt, _reward_contract : felt):
     # let decimals_256 : Uint256 = Uint256(decimals, 0)
     ERC20_initializer(name, symbol, decimals)
@@ -162,6 +162,7 @@ func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
     return ()
 end
 
+@external
 func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         bid : felt) -> ():
     let action_state : felt = auction_state.read()
@@ -208,6 +209,7 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     return ()
 end
 
+@external
 func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> ():
     alloc_locals
     let action_state : felt = auction_state.read()
@@ -256,6 +258,7 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
     return ()
 end
 
+@external
 func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
     alloc_locals
     let action_state : felt = auction_state.read()
@@ -295,6 +298,7 @@ func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     return ()
 end
 
+@external
 func buyout{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> ():
     alloc_locals
     let action_state : felt = auction_state.read()
@@ -331,6 +335,7 @@ func buyout{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(b
     return ()
 end
 
+@external
 func buyout_price_per_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         buyer_address : felt) -> (price : felt):
     alloc_locals
@@ -352,6 +357,7 @@ func buyout_price_per_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     return (price_per_token)
 end
 
+@external
 func redeem_ricks_for_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         ) -> ():
     alloc_locals
@@ -385,6 +391,7 @@ func update_most_recent_prices{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     return ()
 end
 
+@view
 func calculate_average_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         ) -> (average : felt):
     let sum : felt = calculate_sum_price(AUCTION_SIZE)
