@@ -10,7 +10,8 @@ Help taken from ([https://github.com/FrankieIsLost/RICKS]) implementation in sol
 ## Implementation Notes
 
 There are a few differences between the present implementation and the original mechanism design: 
-
+###  The Reward/Bid currency
+For now I have ERC20 Reward token at the currency to use in bidding. We can pass in the WETH address.
 ### The Buyout 
 
 The original paper proposes a lottery buyout. When a majority owner triggers the buyout mechanism, they initiate a coin flip. With a 50% chance, they win all outstanding shares. And with a 50% chance, they pay every other owner the amount of shares required to double their positions. While this is EV fair, it has a few problems. Minority owners might feel like they were not properly compensated for their RICKS in the event of a loss, and majority owners might be reluctant to trigger the process given risk-aversion. 
@@ -30,3 +31,9 @@ The RICKS contract deploys a staking pool on creation. Proceeds of the auction a
 [Ricks](https://github.com/FawadHa1der/cairo-contracts/blob/main/contracts/RICKS.cairo)
 [Pool](https://github.com/FawadHa1der/cairo-contracts/blob/main/contracts/StakingPool.cairo)
 [Pool Tests](https://github.com/FawadHa1der/cairo-contracts/blob/main/tests/test_stakingpool.py)
+
+
+### Testing and Building Files
+You can run tests by running 'pytest'
+Compile/Build by running 'nile compie'
+

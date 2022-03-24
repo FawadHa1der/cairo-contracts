@@ -30,7 +30,7 @@ HOUR = 60 * 60
 
 NONEXISTENT_TOKEN = to_uint(999)
 # random token IDs
-TOKENS = [to_uint(5042), to_uint(793)]
+TOKENS = [5042, 793]
 # test token
 TOKEN = TOKENS[0]
 # random user address
@@ -181,7 +181,7 @@ async def erc721_init(contract_defs):
             18,                        # decimals
             INITIAL_RICKS_SUPPLY,               # initial_supply
             erc721.contract_address,
-            3232,
+            TOKEN,
             DAILY_INFLATION_RATE,
             erc20Stake.contract_address,
             stakingPool.contract_address,
@@ -231,23 +231,10 @@ async def erc721_minted(erc721_factory):
     for token in TOKENS:
         await signer.send_transaction(
             account, erc721.contract_address, 'mint', [
-                account.contract_address, *token]
+                account.contract_address, *to_uint(token)]
         )
 
     return erc721, account, account2, erc721_holder
-
-
-# Fixture for testing contracts that do not accept safe ERC721 transfers
-@pytest.fixture
-async def erc721_unsupported(erc721_factory):
-    erc721, owner, account, account2, erc721_holder, unsupported = erc721_factory
-    for token in TOKENS:
-        await signer.send_transaction(
-            account, erc721.contract_address, 'mint', [
-                account.contract_address, *token]
-        )
-
-    return erc721, account, account2, erc721_holder, unsupported
 
 
 @pytest.mark.asyncio
