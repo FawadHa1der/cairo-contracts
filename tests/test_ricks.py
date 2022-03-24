@@ -31,8 +31,10 @@ HOUR = 60 * 60
 NONEXISTENT_TOKEN = to_uint(999)
 # random token IDs
 TOKENS = [5042, 793]
+TOKENS_256 = [to_uint(TOKENS[0]), to_uint(TOKENS[1])]
 # test token
 TOKEN = TOKENS[0]
+TOKEN_256 = TOKENS_256[0]
 # random user address
 RECIPIENT = 555
 # random data (mimicking bytes in Solidity)
@@ -129,7 +131,7 @@ async def erc721_init(contract_defs):
         constructor_calldata=[
             str_to_felt("Non Fungible Token"),  # name
             str_to_felt("NFT"),                 # ticker
-            account1.contract_address           # owner
+            owner.contract_address           # owner
         ]
     )
 
@@ -189,6 +191,26 @@ async def erc721_init(contract_defs):
         ]
     )
 
+    await signer.send_transaction(
+        owner, erc721.contract_address, 'mint', [
+            owner.contract_address,
+            *TOKEN_256
+        ])
+
+    # assert return_bool.result.response == [1]
+    await signer.send_transaction(
+        owner, erc721.contract_address, 'approve', [
+            ricks.contract_address,
+            *TOKEN_256
+        ])
+
+    # assert return_bool.result.response == [1]
+
+    return_bool = await signer.send_transaction(
+        owner, ricks.contract_address, 'activate', [])
+
+    assert return_bool.result.response == [1]
+
     return (
         starknet.state,
         owner,
@@ -228,10 +250,10 @@ def erc721_factory(contract_defs, erc721_init):
 async def erc721_minted(erc721_factory):
     erc721, owner, account, account2, erc721_holder, _ = erc721_factory
     # mint tokens to account
-    for token in TOKENS:
+    for token in TOKENS_256:
         await signer.send_transaction(
             account, erc721.contract_address, 'mint', [
-                account.contract_address, *to_uint(token)]
+                account.contract_address, *token]
         )
 
     return erc721, account, account2, erc721_holder

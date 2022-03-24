@@ -133,7 +133,8 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 @external
-func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        success : felt):
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.EMPTY
 
@@ -159,7 +160,7 @@ func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
     let _initial_supply_256 : Uint256 = Uint256(_initial_supply, 0)
 
     ERC20_mint(caller_address, _initial_supply_256)
-    return ()
+    return (TRUE)
 end
 
 @external
