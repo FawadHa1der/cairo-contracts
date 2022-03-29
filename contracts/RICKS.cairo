@@ -4,7 +4,7 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import (
-    assert_not_zero, assert_not_equal, assert_le, assert_lt, unsigned_div_rem)
+    assert_not_zero, assert_not_equal, assert_le, assert_lt, unsigned_div_rem, assert_nn)
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.uint256 import (
     Uint256, uint256_add, uint256_sub, uint256_le, uint256_lt, uint256_check, uint256_eq)
@@ -53,6 +53,13 @@ end
 func initial_supply() -> (supply : felt):
 end
 
+@view
+func view_initial_supply{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        supply : felt):
+    let _initial_supply : felt = initial_supply.read()
+    return (_initial_supply)
+end
+
 @storage_var
 func auction_interval() -> (interval : felt):
 end
@@ -73,9 +80,24 @@ end
 func winning_address() -> (address : felt):
 end
 
+@view
+func view_winning_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        address : felt):
+    let _winning_address : felt = winning_address.read()
+    return (_winning_address)
+end
+
 @storage_var
 func token_amount_for_auction() -> (amount : felt):
 end
+
+@view
+func view_token_amount_for_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        amount : felt):
+    let _token_amount_for_auction : felt = token_amount_for_auction.read()
+    return (_token_amount_for_auction)
+end
+
 
 namespace AuctionState:
     const EMPTY = 1
@@ -86,6 +108,13 @@ end
 
 @storage_var
 func auction_state() -> (state : felt):
+end
+
+@view
+func view_auction_state{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        state : felt):
+    let _auction_state : felt = auction_state.read()
+    return (_auction_state)
 end
 
 @storage_var
@@ -108,15 +137,17 @@ const AUCTION_SIZE = 5
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         name : felt, symbol : felt, decimals : felt, _initial_supply : felt, _token : felt,
-        _id : felt, _daily_inflation_rate : felt, _staking_contract : felt,
+        _id : felt, _daily_inflation_rate : felt, 
         _staking_pool_contract : felt, _reward_contract : felt):
     # let decimals_256 : Uint256 = Uint256(decimals, 0)
     ERC20_initializer(name, symbol, decimals)
 
     token_address.write(value=_token)
     token_id.write(value=_id)
-    staking_contract.write(_staking_contract)
+
     staking_pool_contract.write(_staking_pool_contract)
+    let ricks_contract_address : felt = get_contract_address()
+    IStakingPool.pool_initialize(_staking_pool_contract, ricks_contract_address, _reward_contract)
 
     assert_not_equal(_daily_inflation_rate, 0)
 
@@ -126,7 +157,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     initial_supply.write(_initial_supply)
 
     auction_length.write(10800)  # 3 hours
-    auction_interval.write(86400)
+    auction_interval.write(86400) # 1 day 
     min_bid_increase.write(50)
 
     return ()
@@ -154,37 +185,55 @@ func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
     let block_time_stamp : felt = get_block_timestamp()
     let _initial_supply : felt = initial_supply.read()
     auction_end_time.write(block_time_stamp)
+
+    let _auction_end_time :felt = auction_end_time.read()
+    assert_nn(_auction_end_time)
+    let _auction_interval :felt = auction_interval.read()
+    assert_nn(_auction_interval)
+
     auction_state.write(AuctionState.INACTIVE)
 
-    let _initial_supply : felt = initial_supply.read()
+    assert_not_zero(_initial_supply)
+
     let _initial_supply_256 : Uint256 = Uint256(_initial_supply, 0)
 
     ERC20_mint(caller_address, _initial_supply_256)
+
+    # let _total_supply_after_mint_256: Uint256 = ERC20_totalSupply()
+    # let _total_supply_after_mint: felt = _total_supply_after_mint_256.low
+    # assert_not_zero(_total_supply_after_mint )
     return (TRUE)
 end
 
 @external
 func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        bid : felt) -> ():
+        bid : felt) -> (success : felt):
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.INACTIVE
 
     let block_time_stamp : felt = get_block_timestamp()
     let _auction_end_time : felt = auction_end_time.read()
     let _auction_interval : felt = auction_interval.read()
-    let end_time = _auction_end_time + _auction_interval
+    let end_time: felt = _auction_end_time + _auction_interval
 
-    assert_le(end_time, block_time_stamp)
+    with_attr error_message("cannot start auction yet"):
+        assert_lt(end_time, block_time_stamp)
+    end
+
     assert_not_zero(bid)
 
     let _daily_inflationary_rate : felt = daily_inflationary_rate.read()
-    let _total_supply : felt = ERC20_totalSupply()
+    let _total_supply_256: Uint256 = ERC20_totalSupply()
+    let _total_supply: felt = _total_supply_256.low
+#    let _total_supply : felt = 
+    assert_not_zero(_daily_inflationary_rate)
+    assert_not_zero(_total_supply)
 
     let inflation_per_day = _daily_inflationary_rate * _total_supply
     let inflation_seconds_for_auction = block_time_stamp - _auction_end_time
-    let (inflation_per_second : felt, _) = unsigned_div_rem(inflation_per_day, 86400000)
+    let (inflation_amount : felt, _) = unsigned_div_rem(inflation_per_day * inflation_seconds_for_auction, 86400000)
 
-    let inflation_amount : felt = inflation_seconds_for_auction * inflation_per_second
+#    let inflation_amount : felt = inflation_seconds_for_auction * inflation_per_second
     let _auction_length : felt = auction_length.read()
     assert_not_zero(inflation_amount)
 
@@ -207,11 +256,11 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         recipient=ricks_contract_address,
         amount=bid_256)
 
-    return ()
+    return (TRUE)
 end
 
 @external
-func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> ():
+func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> (success:felt):
     alloc_locals
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.ACTIVE
@@ -223,8 +272,11 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
     let _min_bid_increase : felt = min_bid_increase.read()
     let min_increase_multipler : felt = _min_bid_increase + 1000
     let _current_price : felt = current_price.read()
+    let _current_price_256 : Uint256 = Uint256(_current_price, 0)
 
-    assert_le(_current_price * min_increase_multipler, bid * 1000)
+    with_attr error_message("bid too low"):
+        assert_le(_current_price * min_increase_multipler, bid * 1000)
+    end
 
     # If bid is within 15 minutes of auction end, extend auction
     let time_till_auction_ends = _auction_end_time - _block_time_stamp
@@ -248,15 +300,22 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
     let caller_address : felt = get_caller_address()
     let _reward_token : felt = reward_contract.read()
 
+    #transfer back to the older winnning address
+    IERC20.transfer(
+        contract_address=_reward_token,
+        recipient=_winning_address,
+        amount=_current_price_256)
+
+    # move the winning bid amount weth/reward tokens to ricks contract address
     IERC20.transferFrom(
         contract_address=_reward_token,
-        sender=ricks_contract_address,
-        recipient=_winning_address,
+        sender=caller_address,
+        recipient=ricks_contract_address,
         amount=bid_256)
 
     current_price.write(bid)
     winning_address.write(caller_address)
-    return ()
+    return (TRUE)
 end
 
 @external

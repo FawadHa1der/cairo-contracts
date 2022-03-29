@@ -13,6 +13,7 @@ from openzeppelin.token.ERC20.interfaces.IERC20 import IERC20
 from starkware.starknet.common.syscalls import get_contract_address
 from starkware.starknet.common.syscalls import call_contract, get_caller_address, get_tx_info
 from openzeppelin.utils.constants import TRUE, FALSE
+from openzeppelin.security.initializable import initialize, initialized
 
 @event
 func stake_called(user : felt, amount : Uint256):
@@ -66,11 +67,19 @@ func view_reward_factor_at_stake_time{
 end
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        _stakingerc20_address : felt, _rewarderc20_address : felt):
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    return ()
+end
+
+@external
+func pool_initialize{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_stakingerc20_address : felt, _rewarderc20_address : felt) -> (success:felt):
+    assert_not_zero(_stakingerc20_address)
+    assert_not_zero(_rewarderc20_address)
+
     stakingerc20_address.write(_stakingerc20_address)
     rewarderc20_address.write(_rewarderc20_address)
-    return ()
+    initialize()
+    return (TRUE)
 end
 
 @view
@@ -83,7 +92,14 @@ end
 @external
 func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256) -> (
         success : felt):
+    
     alloc_locals
+    let is_initialized: felt = initialized()
+    with_attr error_message("staking and reawrd tokens must be initialized"):
+        assert_not_zero(is_initialized)
+    end
+
+
     let (caller_address) = get_caller_address()
     assert_not_zero(caller_address)
 
@@ -116,7 +132,13 @@ end
 @external
 func unstake_claim_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
         success : felt):
+    
     alloc_locals
+    let is_initialized: felt = initialized()
+    with_attr error_message("staking and reawrd tokens must be initialized"):
+        assert_not_zero(is_initialized)
+    end
+
     let (caller_address) = get_caller_address()
     let (local staked_amount : Uint256) = staked_amounts.read(caller_address)
     let (local cur_reward_factor : Uint256) = reward_factor.read()
@@ -148,6 +170,11 @@ end
 func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         amount : Uint256) -> (success : felt):
     alloc_locals
+    let is_initialized: felt = initialized()
+    with_attr error_message("staking and reawrd tokens must be initialized"):
+        assert_not_zero(is_initialized)
+    end
+
     let (caller_address) = get_caller_address()
     let (local reward_token_address : felt) = rewarderc20_address.read()
     let (local contract_address) = get_contract_address()

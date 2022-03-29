@@ -71,11 +71,12 @@ async def erc20_factory():
 
     stakingPool = await starknet.deploy(
         "contracts/StakingPool.cairo",
-        constructor_calldata=[
-            erc20Stake.contract_address,
-            erc20Reward.contract_address
-        ]
+        constructor_calldata=[]
     )
+
+    return_bool = await OwnerSigner.send_transaction(owner, stakingPool.contract_address, 'pool_initialize', [erc20Stake.contract_address, erc20Reward.contract_address])
+    # check return value equals true ('1')
+    assert return_bool.result.response == [1]
 
     amount = uint(100)
 
