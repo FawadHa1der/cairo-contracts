@@ -411,7 +411,7 @@ async def test_auctionEnd(erc721_factory):
     update_starknet_block(
         starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 40))
 
-    return_bool = await signer.send_transaction(account1, ricks.contracct_address.contract_address, 'end_auction', [])
+    return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
     # check return value equals true ('1')
     assert return_bool.result.response == [1]
 
