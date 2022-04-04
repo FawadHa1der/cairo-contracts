@@ -133,7 +133,7 @@ async def erc721_init(contract_defs):
             str_to_felt("WETH"),      # name
             str_to_felt("WETH"),        # symbol
             18,                        # decimals
-            *uint(10000000),               # initial_supply
+            *uint(100000000),               # initial_supply
             owner.contract_address   # recipient
         ]
     )
@@ -174,10 +174,10 @@ async def erc721_init(contract_defs):
         ])
 
     return_bool = await signer.send_transaction(
-        owner, erc20Weth.contract_address, 'transfer', [account1.contract_address, *uint(50000)])
+        owner, erc20Weth.contract_address, 'transfer', [account1.contract_address, *uint(500000)])
 
     return_bool = await signer.send_transaction(
-        owner, erc20Weth.contract_address, 'transfer', [account2.contract_address, *uint(50000)])
+        owner, erc20Weth.contract_address, 'transfer', [account2.contract_address, *uint(500000)])
 
     # assert return_bool.result.response == [1]
 
@@ -206,15 +206,15 @@ def erc721_factory(contract_defs, erc721_init):
     account_def, erc721_def, erc721_holder_def, unsupported_def, erc20_def, stakingpool_def, ricks_def = contract_defs
     starknet, state, owner, account1, account2, erc721, erc721_holder, unsupported,  stakingPool, erc20Weth, ricks = erc721_init
     # _state = state
-    _state = state.copy()
-    account1 = cached_contract(_state, account_def, account1)
-    account2 = cached_contract(_state, account_def, account2)
-    erc721 = cached_contract(_state, erc721_def, erc721)
-    erc721_holder = cached_contract(_state, erc721_holder_def, erc721_holder)
-    unsupported = cached_contract(_state, unsupported_def, unsupported)
-    erc20Weth = cached_contract(_state, erc20_def, erc20Weth)
-    stakingPool = cached_contract(_state, stakingpool_def, stakingPool)
-    ricks = cached_contract(_state, ricks_def, ricks)
+    # _state = state.copy()
+    # account1 = cached_contract(_state, account_def, account1)
+    # account2 = cached_contract(_state, account_def, account2)
+    # erc721 = cached_contract(_state, erc721_def, erc721)
+    # erc721_holder = cached_contract(_state, erc721_holder_def, erc721_holder)
+    # unsupported = cached_contract(_state, unsupported_def, unsupported)
+    # erc20Weth = cached_contract(_state, erc20_def, erc20Weth)
+    # stakingPool = cached_contract(_state, stakingpool_def, stakingPool)
+    # ricks = cached_contract(_state, ricks_def, ricks)
 
     return starknet, erc721, owner, account1, account2, erc721_holder, unsupported, erc20Weth, stakingPool, ricks
 
