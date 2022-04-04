@@ -73,6 +73,12 @@ end
 
 @external
 func pool_initialize{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_stakingerc20_address : felt, _rewarderc20_address : felt) -> (success:felt):
+
+    let is_initialized: felt = initialized()
+    with_attr error_message("contract already initialized"):
+        assert is_initialized = 0
+    end
+
     assert_not_zero(_stakingerc20_address)
     assert_not_zero(_rewarderc20_address)
 

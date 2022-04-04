@@ -14,12 +14,17 @@ from utils import (
 signer = Signer(123456789987654321)
 INITIAL_RICKS_SUPPLY = 100
 DAILY_INFLATION_RATE = 50
+AUCTION_LENGTH = 10800  # 3 hours = 10800
+AUCTION_INTERVAL = 86400  # 1 day = 86400
+MIN_BID_INCREASE = 50
+
 TIME_ELAPSED_ONE_HOUR = 3600
 TIME_ELAPSED_SIX_HOUR = 21600
 
 
 DEFAULT_TIMESTAMP = 1640991600
 ONE_DAY = 86400
+GLOBAL_TIME_INCREASE = 0
 
 
 class AuctionState(Enum):
@@ -71,8 +76,11 @@ def update_starknet_block(starknet, block_number=1, block_timestamp=TIME_ELAPSED
         block_number=block_number, block_timestamp=block_timestamp)
 
 
-# def increase_block_time(starknet, block_timestamp=TIME_ELAPSED_ONE_HOUR):
-#     starknet.state.state.block_info.block_timestamp += block_timestamp
+def increase_block_time(starknet, TIME_TO_INCREASE=TIME_ELAPSED_ONE_HOUR):
+    global GLOBAL_TIME_INCREASE
+    GLOBAL_TIME_INCREASE = GLOBAL_TIME_INCREASE + TIME_TO_INCREASE
+    starknet.state.state.block_info = BlockInfo(
+        block_number=1, block_timestamp=DEFAULT_TIMESTAMP + GLOBAL_TIME_INCREASE)
 
 
 def reset_starknet_block(starknet):
@@ -143,9 +151,10 @@ async def erc721_init(contract_defs):
             str_to_felt("RCK"),        # symbol
             18,                        # decimals
             INITIAL_RICKS_SUPPLY,               # initial_supply
-            erc721.contract_address,
-            TOKEN,
             DAILY_INFLATION_RATE,
+            AUCTION_LENGTH,
+            AUCTION_INTERVAL,
+            MIN_BID_INCREASE,
             stakingPool.contract_address,
             erc20Weth.contract_address
         ]
@@ -173,7 +182,7 @@ async def erc721_init(contract_defs):
     # assert return_bool.result.response == [1]
 
     return_bool = await signer.send_transaction(
-        owner, ricks.contract_address, 'activate', [])
+        owner, ricks.contract_address, 'activate', [erc721.contract_address, TOKEN])
 
     assert return_bool.result.response == [1]
 
@@ -196,8 +205,8 @@ async def erc721_init(contract_defs):
 def erc721_factory(contract_defs, erc721_init):
     account_def, erc721_def, erc721_holder_def, unsupported_def, erc20_def, stakingpool_def, ricks_def = contract_defs
     starknet, state, owner, account1, account2, erc721, erc721_holder, unsupported,  stakingPool, erc20Weth, ricks = erc721_init
-    _state = state
-    # _state = state.copy()
+    # _state = state
+    _state = state.copy()
     account1 = cached_contract(_state, account_def, account1)
     account2 = cached_contract(_state, account_def, account2)
     erc721 = cached_contract(_state, erc721_def, erc721)
@@ -227,19 +236,16 @@ async def erc721_minted(erc721_factory):
 
 async def run_auctions(starknet, winningbids, ricks, account1, erc20Weth):
     average_prices = []
-    increase = 0
     for bid in winningbids:
-        increase += TIME_ELAPSED_ONE_HOUR * 24
-        update_starknet_block(
-            starknet, block_timestamp=DEFAULT_TIMESTAMP + increase)
+        increase_block_time(
+            starknet, TIME_ELAPSED_ONE_HOUR * 24)
         bid_256 = uint(bid)
         return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
         execution_info = await signer.send_transaction(account1, ricks.contract_address, 'start_auction', [bid])
         execution_info = await ricks.view_token_amount_for_auction().call()
         average_prices.append(bid / execution_info.result.amount)
-        increase += TIME_ELAPSED_ONE_HOUR * 4
-        update_starknet_block(
-            starknet, block_timestamp=DEFAULT_TIMESTAMP + increase)
+        increase_block_time(
+            starknet, TIME_ELAPSED_ONE_HOUR * 4)
 
         return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
     return average_prices
@@ -267,8 +273,8 @@ async def test_startTime(erc721_factory):
     bid = 5
     bid_256 = uint(5)
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + ONE_DAY + 60)
+    increase_block_time(
+        starknet, ONE_DAY + 60)
 
     # set approval
     return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
@@ -282,6 +288,10 @@ async def test_startTime(erc721_factory):
     execution_info = await ricks.view_auction_state().call()
     assert execution_info.result.state == AuctionState.active.value
 
+    increase_block_time(
+        starknet, TIME_ELAPSED_ONE_HOUR * 4)
+    return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
+
 
 @pytest.mark.asyncio
 async def test_increaseBid(erc721_factory):
@@ -290,8 +300,7 @@ async def test_increaseBid(erc721_factory):
     bid = 5
     bid_256 = uint(bid)
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 30))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 30)
 
     # set approval
     return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
@@ -316,6 +325,9 @@ async def test_increaseBid(erc721_factory):
 
     execution_info = await ricks.view_winning_address().call()
     assert execution_info.result.address == account2.contract_address
+    increase_block_time(
+        starknet, TIME_ELAPSED_ONE_HOUR * 4)
+    return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
 
 
 @pytest.mark.asyncio
@@ -325,8 +337,9 @@ async def test_lowbid(erc721_factory):
     bid = 100
     bid_256 = uint(bid)
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 30))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 30))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 30)
 
     # set approval
     return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
@@ -349,6 +362,9 @@ async def test_lowbid(erc721_factory):
         signer.send_transaction(
             account2, ricks.contract_address, 'bid', [bid2]),
         reverted_with="bid too low")
+    increase_block_time(
+        starknet, TIME_ELAPSED_ONE_HOUR * 4)
+    return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
 
 
 @pytest.mark.asyncio
@@ -358,8 +374,9 @@ async def test_refundpreviousBid(erc721_factory):
     bid = 5
     bid_256 = uint(bid)
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 30))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 30))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 30)
 
     execution_info = await erc20Weth.balanceOf(account1.contract_address).call()
     originalBalance = execution_info.result.balance
@@ -387,6 +404,9 @@ async def test_refundpreviousBid(erc721_factory):
 
     execution_info = await erc20Weth.balanceOf(account1.contract_address).call()
     assert originalBalance == execution_info.result.balance
+    increase_block_time(
+        starknet, TIME_ELAPSED_ONE_HOUR * 4)
+    return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
 
 
 @pytest.mark.asyncio
@@ -396,8 +416,9 @@ async def test_auctionEnd(erc721_factory):
     bid = 5
     bid_256 = uint(bid)
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 30))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 30))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 30)
 
     # set approval
     return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
@@ -408,15 +429,16 @@ async def test_auctionEnd(erc721_factory):
         account1, ricks.contract_address, 'start_auction', [bid])
     assert execution_info.result.response == [1]
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 40))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 40))
 
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 40)
     return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
     # check return value equals true ('1')
     assert return_bool.result.response == [1]
 
     execution_info = await ricks.view_auction_state().call()
-    assert execution_info.result.state == AuctionState.active.inactive
+    assert execution_info.result.state == AuctionState.inactive.value
 
 
 @pytest.mark.asyncio
@@ -426,8 +448,9 @@ async def test_inflationRate(erc721_factory, capsys):
     bid = 5
     bid_256 = uint(bid)
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 24))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 24))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 24)
 
     # set approval
     return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
@@ -438,8 +461,9 @@ async def test_inflationRate(erc721_factory, capsys):
         account1, ricks.contract_address, 'start_auction', [bid])
     assert execution_info.result.response == [1]
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 40))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 40))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 40)
 
     execution_info = await ricks.view_token_amount_for_auction().call()
     with capsys.disabled():
@@ -476,8 +500,7 @@ async def test_StakingPoolPayout(erc721_factory):
     bid = 500
     bid_256 = uint(bid)
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 24))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 24)
 
     # set approval
     return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
@@ -488,8 +511,9 @@ async def test_StakingPoolPayout(erc721_factory):
         account1, ricks.contract_address, 'start_auction', [bid])
     assert execution_info.result.response == [1]
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 28))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 28))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 28)
 
     return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
     # check return value equals true ('1')
@@ -522,8 +546,10 @@ async def test_earningsClaimable(erc721_factory):
     # check return value equals true ('1')
     assert return_bool.result.response == [1]
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 24))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 24))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 24)
+
     bid = 1000
     bid_256 = uint(bid)
 
@@ -536,8 +562,9 @@ async def test_earningsClaimable(erc721_factory):
         account1, ricks.contract_address, 'start_auction', [bid])
     assert execution_info.result.response == [1]
 
-    update_starknet_block(
-        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 28))
+    # update_starknet_block(
+    #     starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 28))
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 28)
 
     return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
     # check return value equals true ('1')

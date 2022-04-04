@@ -144,14 +144,11 @@ const AUCTION_SIZE = 5
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, decimals : felt, _initial_supply : felt, _token : felt,
-        _id : felt, _daily_inflation_rate : felt, 
-        _staking_pool_contract : felt, _reward_contract : felt):
+        name : felt, symbol : felt, decimals : felt, _initial_supply : felt, 
+        _daily_inflation_rate : felt,_auction_length:felt , _auction_interval: felt, 
+        _min_bid_increase : felt , _staking_pool_contract : felt, _reward_contract : felt):
     # let decimals_256 : Uint256 = Uint256(decimals, 0)
     ERC20_initializer(name, symbol, decimals)
-
-    token_address.write(value=_token)
-    token_id.write(value=_id)
 
     staking_pool_contract.write(_staking_pool_contract)
     let ricks_contract_address : felt = get_contract_address()
@@ -164,18 +161,22 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     auction_state.write(AuctionState.EMPTY)
     initial_supply.write(_initial_supply)
 
-    auction_length.write(10800)  # 3 hours
-    auction_interval.write(86400) # 1 day 
-    min_bid_increase.write(50)
+    auction_length.write(_auction_length)  #10800 = 3 hours
+    auction_interval.write(_auction_interval) # 1 day = 86400
+    min_bid_increase.write(_min_bid_increase)  # min_bid_increase could be 50
 
     return ()
 end
 
 @external
-func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_token : felt, _token_id: felt) -> (
         success : felt):
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.EMPTY
+
+    assert_not_zero(_token * _token_id)
+    token_address.write(value=_token)
+    token_id.write(value=_token_id)
 
     let caller_address : felt = get_caller_address()
     let _token_address : felt = token_address.read()
@@ -234,9 +235,9 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let _auction_length : felt = auction_length.read()
     assert_not_zero(inflation_amount)
 
-    token_amount_for_auction.write(value=inflation_amount)
-    auction_end_time.write(value=(block_time_stamp + _auction_length))
-    auction_state.write(value=AuctionState.ACTIVE)
+    token_amount_for_auction.write(inflation_amount)
+    auction_end_time.write(block_time_stamp + _auction_length)
+    auction_state.write(AuctionState.ACTIVE)
 
     let _get_caller_address : felt = get_caller_address()
     current_price.write(value=bid)
@@ -277,7 +278,7 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
 
     # If bid is within 15 minutes of auction end, extend auction
     let time_till_auction_ends = _auction_end_time - _block_time_stamp
-    const TIME_RANGE = 54000
+    const TIME_RANGE = 900 # 15 mins
     let within_15_min : felt = is_le(time_till_auction_ends, TIME_RANGE)
 
     if within_15_min == TRUE:
@@ -323,6 +324,8 @@ func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 
     let (local block_time_stamp : felt) = get_block_timestamp()
     let _auction_end_time : felt = auction_end_time.read()
+    # %{ print(f'endtime  - data:{ids._auction_end_time} ') %}
+
     assert_le(_auction_end_time, block_time_stamp)
 
     let _current_price : felt = current_price.read()
@@ -423,7 +426,6 @@ func buyout_price_per_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     let _total_supply_256 : Uint256 = ERC20_totalSupply()
     let _total_supply : felt = _total_supply_256.low
     let (owner_supply_ratio : felt, _) = unsigned_div_rem(balance_of_buyer * 1000, _total_supply)
-    # let owner_supply_ratio : felt = buyer_fraction
     let unowned_supply_ratio : felt = 1000 - owner_supply_ratio
     let unowned_supply_ratio_power_2 : felt = unowned_supply_ratio * unowned_supply_ratio
 
@@ -433,7 +435,6 @@ func buyout_price_per_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
 
     let average_price : felt = calculate_average_price()
     let (price_per_token : felt, _) = unsigned_div_rem(premium * average_price, 1000)
-    # let  : felt = average_price * premium_fraction
 
     return (price_per_token)
 end
@@ -480,20 +481,6 @@ func calculate_average_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     let (_average : felt, _) = unsigned_div_rem(sum, AUCTION_SIZE)
     return (_average)
 end
-
-# func calculate_no_of_auctions{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-#         idx : felt) -> (sum : felt):
-#     if idx == 0:
-#         let last_price : felt = most_recent_prices.read(idx)
-#         return (last_price)
-#     end
-
-#     let _sum : felt = calculate_sum_price(idx - 1)
-#     let price_for_idx : felt = most_recent_prices.read(idx)
-#     let new_sum : felt = _sum + price_for_idx
-
-#     return (new_sum)
-# end
 
 @view
 func calculate_sum_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
