@@ -20,7 +20,13 @@ TEST_721_TOKEN_ADDRESS = 0x03a0dbc41c598ca8a59e16c2c2aa3b6f4c82ab62331d91a5df4af
 # Give approval/allowance to the ricks contract for all your TEST tokens, since there is no native currency we will have to simulate the payments via this test token
 # using https://goerli.voyager.online/ mint a new token with TokenID = 54387 (or update the TOKEN_ID below)
 # Give approval to the ricks contract for the new minted token.
-# On the ricks contract call the activate method and give it the erc721 contract address and the ID that you are frationalyzing.
+# On the ricks contract call the 'activate' method and give it the erc721 contract address and the ID that you are fractionalyzing.
+# Now you can start the auction with a start_auction with a bid amount.
+# Any other account/user can also bid by calling the 'bid' method.
+# Any user can end the bidding by calling end_auction.
+# Who ever is the winner will get new 'RICKS' token and which will be deposited in staking contract.
+# Losing bids will have their bid refunded.
+# Any users can buyout other shards at any point by paying a premium propeortional to his unowned fraction of the total supply
 
 
 INITIAL_RICKS_SUPPLY = 100

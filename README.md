@@ -31,9 +31,32 @@ The RICKS contract deploys a staking pool on creation. Proceeds of the auction a
 [Ricks](https://github.com/FawadHa1der/cairo-contracts/blob/main/contracts/RICKS.cairo)
 [Pool](https://github.com/FawadHa1der/cairo-contracts/blob/main/contracts/StakingPool.cairo)
 [Pool Tests](https://github.com/FawadHa1der/cairo-contracts/blob/main/tests/test_stakingpool.py)
-
+[ricks Tests](https://github.com/FawadHa1der/cairo-contracts/blob/main/tests/test_ricks.py)
 
 ### Testing and Building Files
 You can run tests by running 'pytest'
-Compile/Build by running 'nile compie'
+Compile/Build by running 'nile compile'
 
+
+### Deployment Intructions
+
+refer to [Deployment file](https://github.com/FawadHa1der/cairo-contracts/blob/main/deploy/deploy.py)   
+Steps
+Make mutiple accounts in Argentx wallet to simulate different bidders bidding on the shard of NFTs
+Mint 1000000 Test tokens in every account your Argentx wallet.
+Compile/Build using the command 'nile compile' from project root directory
+Deploy by running 'nile run deploy/deploy.py --network goerli'. This will deploy the staking contract and the main ricks contract on the goerli network and return you the addresses.
+Give approval/allowance to the ricks contract for all your TEST tokens, since there is no native currency we will have to simulate the payments via this test token
+using https://goerli.voyager.online/ mint a new token with TokenID = 54387 (or update the TOKEN_ID below)
+Give approval to the ricks contract for the new minted token.
+On the ricks contract call the 'activate' method and give it the erc721 contract address and the ID that you are fractionalyzing.
+Now you can start the auction with a start_auction with a bid amount.
+Any other account/user can also bid by calling the 'bid' method.
+Any user can end the bidding by calling end_auction.
+Who ever is the winner will get new 'RICKS' token and which will be deposited in staking contract.
+Losing bids will have their bid refunded.
+Any users can buyout other shards at any point by paying a premium propeortional to his unowned fraction of the total supply
+
+
+### Build Environment.
+Built with python3.7 and cairo-lang.0.7.0 and Nile 0.4.0
