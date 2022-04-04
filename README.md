@@ -56,6 +56,11 @@ On the ricks contract call the 'activate' method and give it the erc721 contract
 10) Who ever is the winner will get new 'RICKS' token and which will be deposited in staking contract.
 11) Losing bids will have their bid refunded.
 12) Any users can buyout other shards at any point by paying a premium propeortional to his unowned fraction of the total supply
+13) Sample contracts already deployed on goerli. Though every new NFT fractionalization will require a new ricks/staking contract deployment.
+14)  On goerli -> 0x03a0dbc41c598ca8a59e16c2c2aa3b6f4c82ab62331d91a5df4af3eb18156122:artifacts/abis/Test721.json:Test721
+0x0253af06ff18cd78954825bfbf9ca3b304a27c32b0f94f488a2c00f415f0373f:artifacts/abis/stakingpool.json:stakingpool
+0x07cdac6dc9dcd2ed398ef2b9755a71999c7cbb0d79eaf83e7842d7a29cb048bd:artifacts/abis/ricks.json:ricks
+
 
 
 ### Build Environment.
