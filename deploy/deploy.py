@@ -94,17 +94,6 @@ def run(nre):
 
     # nre.invoke
 
-    # set_impl, abi = nre.deploy(
-    #     "ricks", arguments=[stakingpool_impl], alias="set_impl")
-
-    # briq_address, abi = nre.deploy(
-    #     "_proxy", arguments=[signer.account, briq_impl], alias="briq")
-    # set_address, abi = nre.deploy(
-    #     "_proxy", arguments=[signer.account, set_impl], alias="set")
-
-    # print(f"Deployed briq to {briq_address}")
-    # print(f"Deployed set to {set_address}")
-
     # account_send("SIGNER", "briq", "setSetAddress",
     #              params=[set_address], network=nre.network)
     # account_send("SIGNER", "set", "setBriqAddress", params=[

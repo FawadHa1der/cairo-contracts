@@ -22,12 +22,12 @@ LOGGER = logging.getLogger(__name__)
 #     return logger
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def event_loop():
     return asyncio.new_event_loop()
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 async def erc20_factory():
     logging.getLogger().info('setup erc20 factory testfixture ')
 
