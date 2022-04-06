@@ -8,7 +8,6 @@ from starkware.cairo.common.math import (
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.uint256 import (
     Uint256, uint256_add, uint256_sub, uint256_le, uint256_lt, uint256_check, uint256_eq)
-from openzeppelin.token.ERC721.interfaces.IERC721_Metadata import IERC721_Metadata
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.token.erc721.interfaces.IERC721_Receiver import IERC721_Receiver
 from starkware.starknet.common.syscalls import (
@@ -92,12 +91,11 @@ func token_amount_for_auction() -> (amount : felt):
 end
 
 @view
-func view_token_amount_for_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        amount : felt):
+func view_token_amount_for_auction{
+        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (amount : felt):
     let _token_amount_for_auction : felt = token_amount_for_auction.read()
     return (_token_amount_for_auction)
 end
-
 
 namespace AuctionState:
     const EMPTY = 1
@@ -130,12 +128,11 @@ func final_buyout_price_per_token() -> (res : felt):
 end
 
 @view
-func view_final_buyout_price_per_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        price : felt):
+func view_final_buyout_price_per_token{
+        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (price : felt):
     let _final_buyout_price_per_token : felt = final_buyout_price_per_token.read()
     return (_final_buyout_price_per_token)
 end
-
 
 @storage_var
 func daily_inflationary_rate() -> (rate : felt):
@@ -144,9 +141,9 @@ const AUCTION_SIZE = 5
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, decimals : felt, _initial_supply : felt, 
-        _daily_inflation_rate : felt,_auction_length:felt , _auction_interval: felt, 
-        _min_bid_increase : felt , _staking_pool_contract : felt, _reward_contract : felt):
+        name : felt, symbol : felt, decimals : felt, _initial_supply : felt,
+        _daily_inflation_rate : felt, _auction_length : felt, _auction_interval : felt,
+        _min_bid_increase : felt, _staking_pool_contract : felt, _reward_contract : felt):
     # let decimals_256 : Uint256 = Uint256(decimals, 0)
     ERC20_initializer(name, symbol, decimals)
 
@@ -161,16 +158,16 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     auction_state.write(AuctionState.EMPTY)
     initial_supply.write(_initial_supply)
 
-    auction_length.write(_auction_length)  #10800 = 3 hours
-    auction_interval.write(_auction_interval) # 1 day = 86400
+    auction_length.write(_auction_length)  # 10800 = 3 hours
+    auction_interval.write(_auction_interval)  # 1 day = 86400
     min_bid_increase.write(_min_bid_increase)  # min_bid_increase could be 50
 
     return ()
 end
 
 @external
-func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_token : felt, _token_id: felt) -> (
-        success : felt):
+func activate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        _token : felt, _token_id : felt) -> (success : felt):
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.EMPTY
 
@@ -213,7 +210,7 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let block_time_stamp : felt = get_block_timestamp()
     let _auction_end_time : felt = auction_end_time.read()
     let _auction_interval : felt = auction_interval.read()
-    let end_time: felt = _auction_end_time + _auction_interval
+    let end_time : felt = _auction_end_time + _auction_interval
 
     with_attr error_message("cannot start auction yet"):
         assert_le(end_time, block_time_stamp)
@@ -222,16 +219,16 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     assert_not_zero(bid)
 
     let _daily_inflationary_rate : felt = daily_inflationary_rate.read()
-    let _total_supply_256: Uint256 = ERC20_totalSupply()
-    let _total_supply: felt = _total_supply_256.low
-#    let _total_supply : felt = 
+    let _total_supply_256 : Uint256 = ERC20_totalSupply()
+    let _total_supply : felt = _total_supply_256.low
+    # let _total_supply : felt =
 
-    let inflation_per_day: felt = _daily_inflationary_rate * _total_supply
-    let inflation_seconds_for_auction: felt = block_time_stamp - _auction_end_time
-    let inflation_for_seconds : felt  =  inflation_per_day * inflation_seconds_for_auction
+    let inflation_per_day : felt = _daily_inflationary_rate * _total_supply
+    let inflation_seconds_for_auction : felt = block_time_stamp - _auction_end_time
+    let inflation_for_seconds : felt = inflation_per_day * inflation_seconds_for_auction
     let (inflation_amount : felt, _) = unsigned_div_rem(inflation_for_seconds, 86400000)
 
-#    let inflation_amount : felt = inflation_seconds_for_auction * inflation_per_second
+    # let inflation_amount : felt = inflation_seconds_for_auction * inflation_per_second
     let _auction_length : felt = auction_length.read()
     assert_not_zero(inflation_amount)
 
@@ -258,7 +255,8 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
 end
 
 @external
-func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> (success:felt):
+func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> (
+        success : felt):
     alloc_locals
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.ACTIVE
@@ -278,7 +276,7 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
 
     # If bid is within 15 minutes of auction end, extend auction
     let time_till_auction_ends = _auction_end_time - _block_time_stamp
-    const TIME_RANGE = 900 # 15 mins
+    const TIME_RANGE = 900  # 15 mins
     let within_15_min : felt = is_le(time_till_auction_ends, TIME_RANGE)
 
     if within_15_min == TRUE:
@@ -298,11 +296,9 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
     let caller_address : felt = get_caller_address()
     let _reward_token : felt = reward_contract.read()
 
-    #transfer back to the older winnning address
+    # transfer back to the older winnning address
     IERC20.transfer(
-        contract_address=_reward_token,
-        recipient=_winning_address,
-        amount=_current_price_256)
+        contract_address=_reward_token, recipient=_winning_address, amount=_current_price_256)
 
     # move the winning bid amount weth/reward tokens to ricks contract address
     IERC20.transferFrom(
@@ -317,7 +313,8 @@ func bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid 
 end
 
 @external
-func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (success:felt):
+func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        success : felt):
     alloc_locals
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.ACTIVE
@@ -331,10 +328,8 @@ func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     let _current_price : felt = current_price.read()
     let _total_amount_for_auction : felt = token_amount_for_auction.read()
 
-
     let (most_recent_price : felt, _) = unsigned_div_rem(_current_price, _total_amount_for_auction)
     update_most_recent_prices(AUCTION_SIZE, most_recent_price)
-
 
     auction_state.write(AuctionState.INACTIVE)
     auction_end_time.write(block_time_stamp)
@@ -361,7 +356,8 @@ func end_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 @external
-func buyout{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> (success:felt):
+func buyout{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : felt) -> (
+        success : felt):
     alloc_locals
     let action_state : felt = auction_state.read()
     assert action_state = AuctionState.INACTIVE
@@ -376,9 +372,9 @@ func buyout{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(b
     let price_per_token : felt = buyout_price_per_token(caller_address)
     let _total_supply_256 : Uint256 = ERC20_totalSupply()
     let _total_supply : felt = _total_supply_256.low
-    
+
     let balance_of_buyer_256 : Uint256 = ERC20_balanceOf(caller_address)
-    let balance_of_buyer: felt = balance_of_buyer_256.low
+    let balance_of_buyer : felt = balance_of_buyer_256.low
 
     let unowned_supply : felt = _total_supply - balance_of_buyer
     let total_buyout_cost : felt = price_per_token * unowned_supply
@@ -395,12 +391,12 @@ func buyout{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(b
     let _reward_token : felt = reward_contract.read()
     let ricks_contract_address : felt = get_contract_address()
 
-     IERC20.transferFrom(
+    IERC20.transferFrom(
         contract_address=_reward_token,
         sender=caller_address,
         recipient=ricks_contract_address,
         amount=bid_256)
-   
+
     ERC20_burn(caller_address, balance_of_buyer_256)
 
     final_buyout_price_per_token.write(price_per_token)
@@ -441,7 +437,7 @@ end
 
 @external
 func redeem_ricks_for_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        ) -> (success:felt):
+        ) -> (success : felt):
     alloc_locals
     let action_state : felt = auction_state.read()
     let caller_address : felt = get_caller_address()
@@ -465,7 +461,7 @@ func update_most_recent_prices{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     if _idx == 0:
         return ()
     end
-   # %{ print(f'newprice  - data:{ids.new_price} idx:{ids._idx} ') %}
+    # %{ print(f'newprice  - data:{ids.new_price} idx:{ids._idx} ') %}
 
     let price_for_idx : felt = most_recent_prices.read(_idx)
     most_recent_prices.write(i=_idx, value=new_price)
@@ -487,7 +483,7 @@ func calculate_sum_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
         idx : felt) -> (sum : felt):
     if idx == 0:
         # let last_price : felt = most_recent_prices.read(idx)
-        return (0) # we dont use the the zero idx.
+        return (0)  # we dont use the the zero idx.
     end
 
     let _sum : felt = calculate_sum_price(idx - 1)
@@ -498,62 +494,42 @@ func calculate_sum_price{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 end
 
 @view
-func name{
-        syscall_ptr : felt*,
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }() -> (name: felt):
+func name{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (name : felt):
     let (name) = ERC20_name()
     return (name)
 end
 
 @view
-func symbol{
-        syscall_ptr : felt*,
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }() -> (symbol: felt):
+func symbol{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (symbol : felt):
     let (symbol) = ERC20_symbol()
     return (symbol)
 end
 
 @view
-func totalSupply{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }() -> (totalSupply: Uint256):
-    let (totalSupply: Uint256) = ERC20_totalSupply()
+func totalSupply{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        totalSupply : Uint256):
+    let (totalSupply : Uint256) = ERC20_totalSupply()
     return (totalSupply)
 end
 
 @view
-func decimals{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }() -> (decimals: felt):
+func decimals{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        decimals : felt):
     let (decimals) = ERC20_decimals()
     return (decimals)
 end
 
 @view
-func balanceOf{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(account: felt) -> (balance: Uint256):
-    let (balance: Uint256) = ERC20_balanceOf(account)
+func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        account : felt) -> (balance : Uint256):
+    let (balance : Uint256) = ERC20_balanceOf(account)
     return (balance)
 end
 
 @view
-func allowance{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(owner: felt, spender: felt) -> (remaining: Uint256):
-    let (remaining: Uint256) = ERC20_allowance(owner, spender)
+func allowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        owner : felt, spender : felt) -> (remaining : Uint256):
+    let (remaining : Uint256) = ERC20_allowance(owner, spender)
     return (remaining)
 end
 
@@ -562,65 +538,42 @@ end
 #
 
 @external
-func transfer{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(recipient: felt, amount: Uint256) -> (success: felt):
+func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        recipient : felt, amount : Uint256) -> (success : felt):
     ERC20_transfer(recipient, amount)
     return (TRUE)
 end
 
 @external
-func transferFrom{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(
-        sender: felt, 
-        recipient: felt, 
-        amount: Uint256
-    ) -> (success: felt):
+func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        sender : felt, recipient : felt, amount : Uint256) -> (success : felt):
     ERC20_transferFrom(sender, recipient, amount)
     return (TRUE)
 end
 
 @external
-func approve{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(spender: felt, amount: Uint256) -> (success: felt):
+func approve{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        spender : felt, amount : Uint256) -> (success : felt):
     ERC20_approve(spender, amount)
     return (TRUE)
 end
 
 @external
-func increaseAllowance{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(spender: felt, added_value: Uint256) -> (success: felt):
+func increaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        spender : felt, added_value : Uint256) -> (success : felt):
     ERC20_increaseAllowance(spender, added_value)
     return (TRUE)
 end
 
 @external
-func decreaseAllowance{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(spender: felt, subtracted_value: Uint256) -> (success: felt):
+func decreaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        spender : felt, subtracted_value : Uint256) -> (success : felt):
     ERC20_decreaseAllowance(spender, subtracted_value)
     return (TRUE)
 end
 
 @external
-func burn{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(amount: Uint256):
+func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
     let (owner) = get_caller_address()
     ERC20_burn(owner, amount)
     return ()

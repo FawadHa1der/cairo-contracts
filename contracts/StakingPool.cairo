@@ -8,7 +8,6 @@ from starkware.cairo.common.uint256 import (
     uint256_mul, uint256_unsigned_div_rem)
 # from contracts.utils.String import String_get, String_set
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
-from openzeppelin.token.erc721.interfaces.IERC721_Metadata import IERC721_Metadata
 from openzeppelin.token.ERC20.interfaces.IERC20 import IERC20
 from starkware.starknet.common.syscalls import get_contract_address
 from starkware.starknet.common.syscalls import call_contract, get_caller_address, get_tx_info
@@ -72,9 +71,9 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 @external
-func pool_initialize{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_stakingerc20_address : felt, _rewarderc20_address : felt) -> (success:felt):
-
-    let is_initialized: felt = initialized()
+func pool_initialize{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        _stakingerc20_address : felt, _rewarderc20_address : felt) -> (success : felt):
+    let is_initialized : felt = initialized()
     with_attr error_message("contract already initialized"):
         assert is_initialized = 0
     end
@@ -98,13 +97,11 @@ end
 @external
 func stake{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256) -> (
         success : felt):
-    
     alloc_locals
-    let is_initialized: felt = initialized()
+    let is_initialized : felt = initialized()
     with_attr error_message("staking and reawrd tokens must be initialized"):
         assert_not_zero(is_initialized)
     end
-
 
     let (caller_address) = get_caller_address()
     assert_not_zero(caller_address)
@@ -138,9 +135,8 @@ end
 @external
 func unstake_claim_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
         success : felt):
-    
     alloc_locals
-    let is_initialized: felt = initialized()
+    let is_initialized : felt = initialized()
     with_attr error_message("staking and reawrd tokens must be initialized"):
         assert_not_zero(is_initialized)
     end
@@ -176,7 +172,7 @@ end
 func deposit_reward{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         amount : Uint256) -> (success : felt):
     alloc_locals
-    let is_initialized: felt = initialized()
+    let is_initialized : felt = initialized()
     with_attr error_message("staking and reawrd tokens must be initialized"):
         assert_not_zero(is_initialized)
     end
