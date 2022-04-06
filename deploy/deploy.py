@@ -93,13 +93,3 @@ def run(nre):
     # print(f"Deployed stakingpool_impl to {stakingpool_impl}")
 
     # nre.invoke
-
-    # account_send("SIGNER", "briq", "setSetAddress",
-    #              params=[set_address], network=nre.network)
-    # account_send("SIGNER", "set", "setBriqAddress", params=[
-    #              briq_address], network=nre.network)
-
-    # mint_address, abi = nre.deploy(
-    #     "mint", arguments=[briq_address, "1000"], alias="mint")
-    # account_send("SIGNER", "briq", "setMintContract",
-    #              params=[mint_address], network=nre.network)
