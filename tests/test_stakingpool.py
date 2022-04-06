@@ -4,8 +4,8 @@ import asyncio
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.testing.starknet import Starknet
 from utils import (
-    Signer, uint, str_to_felt, MAX_UINT256, ZERO_ADDRESS, assert_event_emitted,
-    assert_revert, sub_uint, add_uint, div_rem_uint, mul_uint
+    Signer, uint, str_to_felt, ZERO_ADDRESS, TRUE, FALSE, assert_revert, assert_event_emitted,
+    get_contract_def, cached_contract, to_uint, sub_uint, add_uint, div_rem_uint, mul_uint
 )
 
 OwnerSigner = Signer(123456789987654321)
@@ -28,27 +28,28 @@ def event_loop():
 
 
 @pytest.fixture(scope='module')
-async def erc20_factory():
+async def erc20_init(contract_defs):
     logging.getLogger().info('setup erc20 factory testfixture ')
 
     starknet = await Starknet.empty()
+    account_def, erc20_def, stakingpool_def = contract_defs
     owner = await starknet.deploy(
-        "openzeppelin/account/Account.cairo",
+        contract_def=account_def,
         constructor_calldata=[OwnerSigner.public_key]
     )
 
     account1 = await starknet.deploy(
-        "openzeppelin/account/Account.cairo",
+        contract_def=account_def,
         constructor_calldata=[Account1Signer.public_key]
     )
 
     account2 = await starknet.deploy(
-        "openzeppelin/account/Account.cairo",
+        contract_def=account_def,
         constructor_calldata=[Account2Signer.public_key]
     )
 
     erc20Stake = await starknet.deploy(
-        "openzeppelin/token/erc20/ERC20.cairo",
+        contract_def=erc20_def,
         constructor_calldata=[
             str_to_felt("STAKE"),      # name
             str_to_felt("STK"),        # symbol
@@ -59,7 +60,7 @@ async def erc20_factory():
     )
 
     erc20Reward = await starknet.deploy(
-        "openzeppelin/token/erc20/ERC20.cairo",
+        contract_def=erc20_def,
         constructor_calldata=[
             str_to_felt("Reward"),      # name
             str_to_felt("RWD"),        # symbol
@@ -70,10 +71,44 @@ async def erc20_factory():
     )
 
     stakingPool = await starknet.deploy(
-        "contracts/StakingPool.cairo",
+        contract_def=stakingpool_def,
         constructor_calldata=[]
     )
 
+    return starknet, starknet.state, erc20Stake, erc20Reward, stakingPool, owner,  account1, account2
+
+
+@pytest.fixture(scope='module')
+def contract_defs():
+    account_def = get_contract_def('openzeppelin/account/Account.cairo')
+
+    erc20_def = get_contract_def(
+        'openzeppelin/token/erc20/ERC20.cairo')
+
+    stakingpool_def = get_contract_def(
+        'contracts/StakingPool.cairo')
+
+    return account_def, erc20_def, stakingpool_def
+
+
+@pytest.fixture
+def erc20_factory(erc20_init, contract_defs):
+    starknet, state, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_init
+    account_def, erc20_def, stakingpool_def = contract_defs
+    _state = state.copy()
+    account1 = cached_contract(_state, account_def, account1)
+    account2 = cached_contract(_state, account_def, account2)
+    owner = cached_contract(_state, account_def, owner)
+    erc20Stake = cached_contract(_state, erc20_def, erc20Stake)
+    erc20Reward = cached_contract(_state, erc20_def, erc20Reward)
+    stakingPool = cached_contract(_state, stakingpool_def, stakingPool)
+
+    return starknet, owner, account1, account2, erc20Stake, erc20Reward, stakingPool
+
+
+@pytest.fixture
+async def after_initializer(erc20_factory):
+    starknet, owner, account1, account2, erc20Stake, erc20Reward, stakingPool = erc20_factory
     return_bool = await OwnerSigner.send_transaction(owner, stakingPool.contract_address, 'pool_initialize', [erc20Stake.contract_address, erc20Reward.contract_address])
     # check return value equals true ('1')
     assert return_bool.result.response == [1]
@@ -121,12 +156,12 @@ async def erc20_factory():
     execution_info = await erc20Stake.allowance(account2.contract_address, stakingPool.contract_address).call()
     assert execution_info.result.remaining == amount
 
-    return starknet, erc20Stake, erc20Reward, stakingPool, owner,  account1, account2
+    return starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2
 
 
 @pytest.mark.asyncio
-async def test_constructor(erc20_factory):
-    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
+async def test_constructor(after_initializer):
+    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = after_initializer
 
     execution_info = await erc20Stake.balanceOf(account1.contract_address).call()
     assert execution_info.result.balance == uint(100)
@@ -145,8 +180,8 @@ async def test_constructor(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_stake(erc20_factory):
-    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
+async def test_stake(after_initializer):
+    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = after_initializer
 
     execution_info = await stakingPool.total_supply_staked().call()
     assert execution_info.result.supply == uint(0)
@@ -166,8 +201,8 @@ async def test_stake(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_depositRewards(erc20_factory):
-    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
+async def test_depositRewards(after_initializer):
+    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = after_initializer
 
     amount = uint(10)
     reward_amount = uint(100)
@@ -198,8 +233,8 @@ async def test_depositRewards(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_depositRewards(erc20_factory):
-    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
+async def test_depositRewards(after_initializer):
+    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = after_initializer
     amount = uint(10)
     reward_amount = uint(100)
 
@@ -222,8 +257,8 @@ async def test_depositRewards(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_depositProportionalRewards(erc20_factory):
-    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
+async def test_depositProportionalRewards(after_initializer):
+    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = after_initializer
     stake_amount_account1 = uint(1)
     stake_amount_account2 = uint(4)
 
@@ -268,10 +303,8 @@ async def test_depositProportionalRewards(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_depositProportionalRewardsOverTime(erc20_factory, caplog):
-    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = erc20_factory
-    caplog.set_level(logging.WARNING)
-    logging.getLogger().info('Log inside a test function!')
+async def test_depositProportionalRewardsOverTime(after_initializer):
+    starknet, erc20Stake, erc20Reward, stakingPool, owner, account1, account2 = after_initializer
 
     reward_amount1 = uint(100)
     reward_amount2 = uint(100)

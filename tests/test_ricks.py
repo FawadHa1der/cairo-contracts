@@ -10,6 +10,8 @@ from utils import (
     Signer, uint, str_to_felt, ZERO_ADDRESS, TRUE, FALSE, assert_revert, assert_event_emitted,
     get_contract_def, cached_contract, to_uint, sub_uint, add_uint
 )
+import logging
+logger = logging.getLogger(__name__)
 
 signer = Signer(123456789987654321)
 INITIAL_RICKS_SUPPLY = 100
@@ -51,6 +53,7 @@ def event_loop():
 
 @pytest.fixture(scope='module')
 def contract_defs():
+    logger.debug('contract_defs.....')
     account_def = get_contract_def('openzeppelin/account/Account.cairo')
     erc721_def = get_contract_def(
         'openzeppelin/token/erc721/ERC721_Mintable_Pausable.cairo')
@@ -89,6 +92,8 @@ def reset_starknet_block(starknet):
 
 @pytest.fixture(scope='module')
 async def erc721_init(contract_defs):
+    logger.debug('erc721_init.....')
+
     account_def, erc721_def, erc721_holder_def, unsupported_def, erc20_def, stakingpool_def, ricks_def = contract_defs
     starknet = await Starknet.empty()
     update_starknet_block(starknet, block_timestamp=DEFAULT_TIMESTAMP)
@@ -160,32 +165,6 @@ async def erc721_init(contract_defs):
         ]
     )
 
-    await signer.send_transaction(
-        owner, erc721.contract_address, 'mint', [
-            owner.contract_address,
-            *TOKEN_256
-        ])
-
-    # assert return_bool.result.response == [1]
-    await signer.send_transaction(
-        owner, erc721.contract_address, 'approve', [
-            ricks.contract_address,
-            *TOKEN_256
-        ])
-
-    return_bool = await signer.send_transaction(
-        owner, erc20Weth.contract_address, 'transfer', [account1.contract_address, *uint(500000)])
-
-    return_bool = await signer.send_transaction(
-        owner, erc20Weth.contract_address, 'transfer', [account2.contract_address, *uint(500000)])
-
-    # assert return_bool.result.response == [1]
-
-    return_bool = await signer.send_transaction(
-        owner, ricks.contract_address, 'activate', [erc721.contract_address, TOKEN])
-
-    assert return_bool.result.response == [1]
-
     return (
         starknet,
         starknet.state,
@@ -202,25 +181,69 @@ async def erc721_init(contract_defs):
 
 
 @pytest.fixture
-def erc721_factory(contract_defs, erc721_init):
+async def erc721_factory(contract_defs, erc721_init):
+    logger.debug('erc721_factory.....')
     account_def, erc721_def, erc721_holder_def, unsupported_def, erc20_def, stakingpool_def, ricks_def = contract_defs
     starknet, state, owner, account1, account2, erc721, erc721_holder, unsupported,  stakingPool, erc20Weth, ricks = erc721_init
-    # _state = state
-    # _state = state.copy()
-    # account1 = cached_contract(_state, account_def, account1)
-    # account2 = cached_contract(_state, account_def, account2)
-    # erc721 = cached_contract(_state, erc721_def, erc721)
-    # erc721_holder = cached_contract(_state, erc721_holder_def, erc721_holder)
-    # unsupported = cached_contract(_state, unsupported_def, unsupported)
-    # erc20Weth = cached_contract(_state, erc20_def, erc20Weth)
-    # stakingPool = cached_contract(_state, stakingpool_def, stakingPool)
-    # ricks = cached_contract(_state, ricks_def, ricks)
+
+    _state = state.copy()
+    starknet.state = _state
+    owner = cached_contract(_state, account_def, owner)
+    account1 = cached_contract(_state, account_def, account1)
+    account2 = cached_contract(_state, account_def, account2)
+    erc721 = cached_contract(_state, erc721_def, erc721)
+    erc721_holder = cached_contract(_state, erc721_holder_def, erc721_holder)
+    unsupported = cached_contract(_state, unsupported_def, unsupported)
+    erc20Weth = cached_contract(_state, erc20_def, erc20Weth)
+    stakingPool = cached_contract(_state, stakingpool_def, stakingPool)
+    ricks = cached_contract(_state, ricks_def, ricks)
 
     return starknet, erc721, owner, account1, account2, erc721_holder, unsupported, erc20Weth, stakingPool, ricks
 
 
+@pytest.fixture
+async def after_initializer(erc721_factory):
+    starknet, erc721, owner, account1, account2, erc721_holder, unsupported, erc20Weth, stakingPool, ricks = erc721_factory
+    logger.debug('after_initializer.....')
+
+    await signer.send_transaction(
+        owner, erc721.contract_address, 'mint', [
+            owner.contract_address,
+            *TOKEN_256
+        ])
+    # assert return_bool.result.response == [1]
+    await signer.send_transaction(
+        owner, erc721.contract_address, 'approve', [
+            ricks.contract_address,
+            *TOKEN_256
+        ])
+
+    return_bool = await signer.send_transaction(
+        owner, ricks.contract_address, 'activate', [erc721.contract_address, TOKEN])
+    assert return_bool.result.response == [1]
+    execution_info1 = await ricks.view_auction_state().call()
+    assert execution_info1.result.auction_state == AuctionState.inactive.value
+
+    # return_bool = await signer.send_transaction(
+    #     owner, ricks.contract_address, 'activate', [erc721.contract_address, TOKEN])
+    # assert return_bool.result.response == [1]
+
+    return_bool = await signer.send_transaction(
+        owner, erc20Weth.contract_address, 'transfer', [account1.contract_address, *uint(500000)])
+
+    return_bool = await signer.send_transaction(
+        owner, erc20Weth.contract_address, 'transfer', [account2.contract_address, *uint(500000)])
+
+    # assert return_bool.result.response == [1]
+    update_starknet_block(
+        starknet, block_timestamp=DEFAULT_TIMESTAMP)
+
+    return starknet, erc721, owner, account1, account2, erc721_holder, unsupported, erc20Weth, stakingPool, ricks
+
 # Note that depending on what's being tested, test cases alternate between
 # accepting `erc721_minted`, `erc721_factory`, and `erc721_unsupported` fixtures
+
+
 @pytest.fixture
 async def erc721_minted(erc721_factory):
     starknet, erc721, owner, account, account2, erc721_holder, _ = erc721_factory
@@ -259,11 +282,14 @@ async def test_initialSupply(erc721_factory):
 
 
 @pytest.mark.asyncio
-async def test_startTime(erc721_factory):
-    starknet, erc721, owner, account1, account2, erc721_holder, unsupported, erc20Weth, stakingPool, ricks = erc721_factory
+async def test_startTime(after_initializer):
+    starknet, erc721, owner, account1, account2, erc721_holder, unsupported, erc20Weth, stakingPool, ricks = after_initializer
 
     execution_info = await ricks.view_auction_state().call()
-    assert execution_info.result.state == AuctionState.inactive.value
+    assert execution_info.result.auction_state == AuctionState.inactive.value
+
+    update_starknet_block(
+        starknet, block_timestamp=DEFAULT_TIMESTAMP)
 
     await assert_revert(
         signer.send_transaction(
@@ -273,9 +299,8 @@ async def test_startTime(erc721_factory):
     bid = 5
     bid_256 = uint(5)
 
-    increase_block_time(
-        starknet, ONE_DAY + 60)
-
+    update_starknet_block(
+        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 24))
     # set approval
     return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
     # check return value equals true ('1')
@@ -286,10 +311,10 @@ async def test_startTime(erc721_factory):
     assert execution_info.result.response == [1]
 
     execution_info = await ricks.view_auction_state().call()
-    assert execution_info.result.state == AuctionState.active.value
+    assert execution_info.result.auction_state == AuctionState.active.value
 
-    increase_block_time(
-        starknet, TIME_ELAPSED_ONE_HOUR * 4)
+    update_starknet_block(
+        starknet, block_timestamp=DEFAULT_TIMESTAMP + (TIME_ELAPSED_ONE_HOUR * 28))
     return_bool = await signer.send_transaction(account1, ricks.contract_address, 'end_auction', [])
 
 
@@ -300,7 +325,7 @@ async def test_increaseBid(erc721_factory):
     bid = 5
     bid_256 = uint(bid)
 
-    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 30)
+    increase_block_time(starknet, TIME_ELAPSED_ONE_HOUR * 24)
 
     # set approval
     return_bool = await signer.send_transaction(account1, erc20Weth.contract_address, 'approve', [ricks.contract_address, *bid_256])
@@ -438,7 +463,7 @@ async def test_auctionEnd(erc721_factory):
     assert return_bool.result.response == [1]
 
     execution_info = await ricks.view_auction_state().call()
-    assert execution_info.result.state == AuctionState.inactive.value
+    assert execution_info.result.auction_state == AuctionState.inactive.value
 
 
 @pytest.mark.asyncio
@@ -475,7 +500,7 @@ async def test_inflationRate(erc721_factory, capsys):
     assert return_bool.result.response == [1]
 
     execution_info = await ricks.view_auction_state().call()
-    assert execution_info.result.state == AuctionState.inactive.value
+    assert execution_info.result.auction_state == AuctionState.inactive.value
 
     execution_info = await ricks.balanceOf(account1.contract_address).call()
     balance = execution_info.result.balance

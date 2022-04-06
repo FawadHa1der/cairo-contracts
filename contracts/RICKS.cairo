@@ -112,7 +112,7 @@ end
 
 @view
 func view_auction_state{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        state : felt):
+        auction_state : felt):
     let _auction_state : felt = auction_state.read()
     return (_auction_state)
 end
