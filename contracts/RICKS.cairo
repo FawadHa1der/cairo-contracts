@@ -21,6 +21,7 @@ from openzeppelin.token.erc20.library import (
 from contracts.IStakingPool import IStakingPool
 from openzeppelin.token.ERC20.interfaces.IERC20 import IERC20
 from openzeppelin.utils.constants import TRUE, FALSE
+from openzeppelin.introspection.ERC165 import ERC165_supports_interface, ERC165_register_interface
 
 # the ERC721 token address being fractionalized
 @storage_var
@@ -139,6 +140,21 @@ func daily_inflationary_rate() -> (rate : felt):
 end
 const AUCTION_SIZE = 5
 
+@view
+func onERC721Received(
+        operator : felt, _from : felt, tokenId : Uint256, data_len : felt, data : felt*) -> (
+        selector : felt):
+    # ERC721_RECEIVER_ID = 0x150b7a02
+    return (0x150b7a02)
+end
+
+@view
+func supportsInterface{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        interfaceId : felt) -> (success : felt):
+    let (success) = ERC165_supports_interface(interfaceId)
+    return (success)
+end
+
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         name : felt, symbol : felt, decimals : felt, _initial_supply : felt,
@@ -161,6 +177,9 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     auction_length.write(_auction_length)  # 10800 = 3 hours
     auction_interval.write(_auction_interval)  # 1 day = 86400
     min_bid_increase.write(_min_bid_increase)  # min_bid_increase could be 50
+
+    # ERC721_RECEIVER_ID = 0x150b7a02
+    ERC165_register_interface(0x150b7a02)
 
     return ()
 end

@@ -57,9 +57,9 @@ def run(nre):
     # print(f"OSEnviron: {os.environ}")
     # print(f" felt721 is  {felt721} and signer address is {signer.address}")
 
-    # test721Impl, test721abi = nre.deploy(
-    #     "Test721", arguments=[f'{felt721}', f'{felt721}', f'{signer.address}'], alias="Test721")
-    # print(f"Deployed test 721 to {test721Impl}")
+    test721Impl, test721abi = nre.deploy(
+        "Test721", arguments=[f'{felt721}', f'{felt721}', f'{signer.address}'], alias="Test721")
+    print(f"Deployed test 721 to {test721Impl}")
 
     stakingpool_impl, abi = nre.deploy(
         "stakingpool", arguments=[], alias="stakingpool")
