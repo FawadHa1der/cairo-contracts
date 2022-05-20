@@ -160,9 +160,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         name : felt, symbol : felt, decimals : felt, _initial_supply : felt,
         _daily_inflation_rate : felt, _auction_length : felt, _auction_interval : felt,
         _min_bid_increase : felt, _staking_pool_contract : felt, _reward_contract : felt):
-    # let decimals_256 : Uint256 = Uint256(decimals, 0)
     ERC20_initializer(name, symbol, decimals)
-
     staking_pool_contract.write(_staking_pool_contract)
     let ricks_contract_address : felt = get_contract_address()
     IStakingPool.pool_initialize(_staking_pool_contract, ricks_contract_address, _reward_contract)
@@ -178,7 +176,6 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     auction_interval.write(_auction_interval)  # 1 day = 86400
     min_bid_increase.write(_min_bid_increase)  # min_bid_increase could be 50
 
-    # ERC721_RECEIVER_ID = 0x150b7a02
     ERC165_register_interface(0x150b7a02)
 
     return ()

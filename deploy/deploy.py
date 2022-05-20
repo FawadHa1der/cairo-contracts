@@ -80,9 +80,9 @@ def run(nre):
     #     ]
     # )
 
-    ricks_impl, abi = nre.deploy(
-        "ricks", arguments=[f'{ricks}', f'{ricks}', f'{18}', f'{INITIAL_RICKS_SUPPLY}', f'{DAILY_INFLATION_RATE}', f'{AUCTION_LENGTH}', f'{AUCTION_INTERVAL}', f'{MIN_BID_INCREASE}', f'{stakingpool_impl}', f'{TEST_REWARD_TOKEN_ADDRESS}'], alias="ricks")
-    print(f"Deployed ricks_impl to {ricks_impl}")
+    # ricks_impl, abi = nre.deploy(
+    #     "ricks", arguments=[f'{ricks}', f'{ricks}', f'{18}', f'{INITIAL_RICKS_SUPPLY}', f'{DAILY_INFLATION_RATE}', f'{AUCTION_LENGTH}', f'{AUCTION_INTERVAL}', f'{MIN_BID_INCREASE}', f'{stakingpool_impl}', f'{TEST_REWARD_TOKEN_ADDRESS}'], alias="ricks")
+    # print(f"Deployed ricks_impl to {ricks_impl}")
 
     # erc721_impl, abi = nre.deploy(
     #     "weth", arguments=[], alias="mytoken")
