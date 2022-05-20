@@ -28,18 +28,18 @@ from openzeppelin.introspection.ERC165 import ERC165_supports_interface, ERC165_
 func token_address() -> (address : felt):
 end
 
-@view
+@storage_var
 func token_id() -> (id : felt):
 end
 
 @view
-func view_token_address() -> (address : felt):
+func view_token_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (address : felt):
     let _token_address : felt = token_address.read()
     return (_token_address)
 end
 
 @view
-func view_token_id() -> (id : felt):
+func view_token_id{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (id : felt):
     let _token_id : felt = token_id.read()
     return (_token_id)
 end
