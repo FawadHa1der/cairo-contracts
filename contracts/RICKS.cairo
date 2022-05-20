@@ -28,8 +28,20 @@ from openzeppelin.introspection.ERC165 import ERC165_supports_interface, ERC165_
 func token_address() -> (address : felt):
 end
 
-@storage_var
+@view
 func token_id() -> (id : felt):
+end
+
+@view
+func view_token_address() -> (address : felt):
+    let _token_address : felt = token_address.read()
+    return (_token_address)
+end
+
+@view
+func view_token_id() -> (id : felt):
+    let _token_id : felt = token_id.read()
+    return (_token_id)
 end
 
 @storage_var
@@ -242,11 +254,16 @@ func start_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let inflation_per_day : felt = _daily_inflationary_rate * _total_supply
     let inflation_seconds_for_auction : felt = block_time_stamp - _auction_end_time
     let inflation_for_seconds : felt = inflation_per_day * inflation_seconds_for_auction
-    let (inflation_amount : felt, _) = unsigned_div_rem(inflation_for_seconds, 86400000)
+
+    # let (inflation_amount : felt, _) = unsigned_div_rem(inflation_for_seconds, 86400000)
+    # below line is for demo only, upper line is correct
+    let inflation_amount : felt = 10
 
     # let inflation_amount : felt = inflation_seconds_for_auction * inflation_per_second
     let _auction_length : felt = auction_length.read()
-    assert_not_zero(inflation_amount)
+    with_attr error_message("inflation amount is zero"):
+        assert_not_zero(inflation_amount)
+    end
 
     token_amount_for_auction.write(inflation_amount)
     auction_end_time.write(block_time_stamp + _auction_length)
